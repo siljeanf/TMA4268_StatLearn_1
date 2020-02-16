@@ -46,8 +46,6 @@ for $y_0=f(x_0)+\epsilon$ where f is the true regression function and $\epsilon$
 Now we can derive this expression into three terms.
 
 
-
-
 $$
 \begin{aligned}
 E[(y_0-\hat{f}(x_0))^2]&=  &&\text{definition of y0}\\ 
@@ -242,7 +240,7 @@ We get $\beta_1=0.363$ which is positive as expected.
 
 
 ## c)
-Now we will reduce the number of covariates. The vector of covariates is now $\textbf{x}=(x_1,x_2)$ where $x_1$ denotes the difference between aces perfored by player 1 and player 2, while x2 denotes the difference in unforced errors made by the players.
+Now we will reduce the number of covariates. The vector of covariates is now $\textbf{x}=(x_1,x_2)$ where $x_1$ denotes the difference between aces perfored by player 1 and player 2, while x_2 denotes the difference in unforced errors made by the players.
 
 
 We divide the data into a training and a test set.
@@ -292,39 +290,38 @@ ggplot(r2.tennis,aes(x=ACEdiff,y=UFEdiff ,color=Result)) + geom_point() + theme_
 ```
 
 
-It seems like the boundary line separates the two classes quite well on the training set. Now we can predict on the test set and look at the confusion table.
+It seems like the boundary line separates the two classes quite well on the training set. We can use the boundary line to predict the result of a new test set. We will now look at the confusion table to see how good the classification rule is.
 
 ```{r}
+#make a vector of the result of the matches consisting of Y=0 or Y=1
 probs = predict(r2.tennis, tennisTest, type = "response")
 for (i in 1:length(probs)){
-  if (probs[i]<0.5){
+  if (probs[i]<0.5){ 
     probs[i]=0
   }
   else{probs[i]=1}
 }
 
-t<-table(tennisTest$Result,probs)
+#confusion table of
+t<-table(tennisTest$Result, probs)
 colnames(t)=c("Predicted Loss","Predicted Win")
 rownames(t)=c("Actual Loss","Actual Win")
 t
 ```
-
-We will calculate the sensitivity and specificity in order to understand this table better.
+The confusion table shows the performance of the classification rule, logisitc regression. The sum of the diagonal is the total number of correct classifications. The sum of all elements off the diagonal is the total number of misclassifications. We notice that there are some misclassifications for both classes. We will now calculate the sensitivity and specificity in order to understand this table better.
 
 $$Sensitivity=\frac{True \ Positive }{Actual \ Positive}$$
 $$Specificity=\frac{True \ Negative }{Actual \ Negative}$$
-
 ```{r}
 Sensitivity<-(t[2,2]/(t[2,2]+t[2,1]))
 Specificity<-(t[1,1]/(t[1,1]+t[1,2]))
-print(c(Sensitivity,Specificity))
+print(c("Sensitivity: ",Sensitivity,"Specificity: ", Specificity))
 ```
-
-Since a high sensitivity and specificity yields a good classification rule, we are happy with the obtained values.
+Sensitivity is the proportion of correctly classified positive observations, while specificity is the proportion of correctly classified negative observations. Since a high sensitivity and specificity yields a good classification rule, we are happy with the obtained values above.
 
 
 ## d)
-First of all, $\pi_k=P(Y=k)$, k=0,1, are the prior probabilities. Recall that $Y=0$ denotes player 1 loosing the match. For k=0 $\pi_0$ would then be estimated by $\frac{\#loss}{\#observations}$ while for k=1 this would be $\frac{\#victories}{\#observations}$.
+First of all, $\pi_k=P(Y=k)$, k=0,1, are the prior probabilities. Recall that $Y=0$ denotes player 1 loosing the match. For $k=0$ $\pi_0$ would then be estimated by $\frac{\#loss}{\#observations}$ while for k=1 this would be $\frac{\#victories}{\#observations}$.
 
 The function $f_k(\textbf{x})=P(\textbf{X}=\textbf{x}|Y=k)$ is the probability to obtain a certain $\textbf{x}$, given which player won the game. It follows a multivariate normal distribution with a class specific mean $\mathbf{\mu_k}$ and a common covariance matrix $\mathbf{\Sigma}$ that we will discuss now.
 
@@ -349,10 +346,9 @@ log(\pi_0) + x^T \Sigma^{-1}\mu_0 - \frac{1}{2}\mu_0\Sigma^{-1}\mu_0&= log(\pi_1
 \delta_0(x)& = \delta_1(x)
 \end{aligned}
 $$
-Remark:
-$\Big(\mu_0^T\Sigma^{-1}x\Big)^T = x^T\Sigma^{-1}\mu_0$. This is true because we know $\Sigma$ is a positive semidefinitt matrix, where $\Sigma^{-1} = (\Sigma^{-1})^T = (\Sigma^T)^{-1} = \Sigma^{-1}$.
+The calculations between the second and third last line removes some terms. Here we use that $\Sigma$ is a positive semidefinitt matrix: $\Sigma^{-1} = (\Sigma^{-1})^T = (\Sigma^T)^{-1} = \Sigma^{-1}$. It then follows that two of the terms are equal, $\Big(\mu_0^T\Sigma^{-1}x\Big)^T = x^T\Sigma^{-1}\mu_0$. 
 
-We have now found the discriminant score $\delta_k(x)$. We will assign an observation to class $k$ when $\delta_k(x)$ is largest. In other words we use the rule to classify to class 1 for an observation with covariates $x$ if $\hat{P}(\textbf{Y}=1 \mid \textbf{x})>0.5$. We will now find the formula for the boundary between the classes $ax_1+bx_2+c=0$. 
+We have now found the discriminant score $\delta_k(x)$. We will assign an observation to class $k$ when $\delta_k(x)$ is largest. In other words, we use the rule to classify to class 1 for an observation with covariates $x$ if $\hat{P}(\textbf{Y}=1 \mid \textbf{x})>0.5$. We will now find the formula for the boundary between the classes $ax_1+bx_2+c=0$. 
 
 $$
 \begin{aligned}
@@ -380,11 +376,10 @@ $$
  c &= -\frac{1}{2}\mu_0^T\Sigma^{-1}\mu_0 + \frac{1}{2}\mu_1^T\Sigma^{-1}\mu_1 + log\Big(\frac{\pi_0}{\pi_1}\Big)
 \end{aligned}
 $$
-We rearrange the forumla for the boundary in the form of a linear function.
+We rearrange the forumla for the boundary in order to find a linear form.
 
 $$x_2 = -\frac{ax_1+c}{b}$$
-We will now use R for the calculations of a,b and c in order to plot the boundary line later.
-
+We will now use R for the calculations of a,b and c in order to plot the boundary line.
 
 
 ```{r}
@@ -413,42 +408,45 @@ sigma <- (((nrow(tennisTrain_loss) - 1)) *
 sigma.inv <- solve(sigma)
 
 ##We can now solve for a,b and c
+
 a = sigma.inv[1,1]*(mu_0[1]-mu_1[1])+sigma.inv[1,2]*(mu_0[2]-mu_1[2])
 b = sigma.inv[2,1]*(mu_0[1]-mu_1[1])+sigma.inv[2,2]*(mu_0[2]-mu_1[2])
 c = -0.5*t(mu_0)%*%sigma.inv%*%mu_0+0.5*t(mu_1)%*%sigma.inv%*%mu_1 + log(pi_0/pi_1)
 
 ```
 
-
-We will now make a plot with the training observations and the class boundary, where we also add the test observations to the plot.
+We will now make a plot with both the training and test observations with class boundary for LDA.
+The data from the test set is represented with triangles, while the training data are circles in the plot.
 
 ```{r}
-ggplot(r2.tennis,aes(x=ACEdiff,y=UFEdiff ,color=Result)) + geom_point() +geom_point(data=tennisTest,shape="triangle")+ theme_bw() + geom_abline(slope=-a/b, intercept=-c/b)
+ggplot(r2.tennis,aes(x=ACEdiff,y=UFEdiff ,color=Result)) + geom_point(data = tennisTrain, shape="circle") + geom_point(data=tennisTest,shape="triangle")+ theme_bw() + geom_abline(slope=a/c, intercept=b/c)
 
 ```
 
-
-
+The boundary line manages to seperate the biggest amount of observations from the two classes, but there are some observations from both the train and test set that lay on the wrong side of the boundary line. 
 
 ## f)
 For this task we perform LDA on the training data.
 ```{r}
 LDA=lda(Result~ACEdiff+UFEdiff,data=tennisTrain)
 ```
-We can then classify the results of the test set. We make a confusion table to look at our results.
+
+We are now ready to classify the results of the test set. We make a confusion table to look at our results.
+
 ```{r}
-pred <- predict(LDA, tennisTest)$class
-table2<-table(tennisTest$Result,pred)
+pred <- predict(LDA, tennisTest)$class ##list of results for the matches
+table2<-table(tennisTest$Result,pred) ##confusion table
 colnames(table2)=c("Predicted Loss","Predicted Win")
 rownames(table2)=c("Actual Loss","Actual Win")
 table2
 ```
-
+The confusion tables shows that most of the predictions are correct, with a misclassification of 9 and 5, there are a remarkeble chance for the prediction to be wrong.
 
 ```{r}
+##calculate specificity and sensitivity
 Sensitivity<-(table2[2,2]/(table2[2,2]+table2[2,1]))
 Specificity<-(table2[1,1]/(table2[1,1]+table2[1,2]))
-print(c(Sensitivity,Specificity))
+print(c("Sensitivity: ", Sensitivity,"Specificity: ",Specificity))
 ```
 The values are pretty high which is good.
 
@@ -457,21 +455,30 @@ We will now use QDA on the training set and make the confusion table for the tes
 
 ```{r}
 QDA=qda(Result~ACEdiff+UFEdiff,data=tennisTrain)
-pred <- predict(QDA, tennisTest)$class
-table3<-table(tennisTest$Result,pred)
+pred <- predict(QDA, tennisTest)$class ##result list for y-values
+table3<-table(tennisTest$Result,pred)##confusion table
 colnames(table3)=c("Predicted Loss","Predicted Win")
 rownames(table3)=c("Actual Loss","Actual Win")
 table3
 ```
 
+Again the table for QDA is quite similar as the table for LDA. This can indicate that a quadratic fit may not make it better.
+
 ```{r}
 Sensitivity<-(table3[2,2]/(table3[2,2]+table3[2,1]))
 Specificity<-(table3[1,1]/(table3[1,1]+table3[1,2]))
-print(c(Sensitivity,Specificity))
+print(c("Sensitivity: ", Sensitivity,"Specificity: ",Specificity))
 ```
 The sensitivity is exactly the same as in LDA but the specificity is now a bit lower.
 
 ## h)
+We will now compare the plots for the different classification approaches we have discussed: logistic regression, LDA and QDA.
+
+We know that QDA assumes a quadratic decision boundary. Usually this classfication rule is recommended when we have a huge amount of data for the training set so that the variance of the classifier is not a major concern, or if the assumption of common covariance matric is wrong. In this case it looks like the quadratic line overfits the data points. 
+
+We now look at the linear decisions boundaries form LDA and logistic regression. We notice that the linear boundaries are at least as good as the quadratic decision boundary. Remember that LDA assumes that the observations are drawn from a Gaussian distribution with common covariance matrix in each class. It can seem like this assumption is not perfectly accurate as the boundary line produced from logistic regression fits the data points best.
+
+The confusion matrices confirms the choice for glm as we can see that there are less misclassifications with logistic regression as classifier. 
 
 
 # Problem 4
@@ -490,6 +497,9 @@ $$\text{CV}_{10} = \frac1{10} \sum_{i=1}^{10} \text{MSE}_i \ .$$
 True, True, False, False
 
 ## c)
+
+We will now look at a bootstrap example. We want to fit a model that predicts the probability for coronary heart disease (chd) from systolic blood pressure (sbp) and sex (0=female, 1=male). We load the data and perform logistic regression with chd as outcome and sbp and sex as covariates.
+
 ```{r}
 id <- "1I6dk1fA4ujBjZPo3Xj8pIfnzIa94WKcy"  # google file ID
 d.chd <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", 
@@ -497,52 +507,54 @@ d.chd <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
 head(d.chd)
 ```
 ```{r}
+#logistic regresseion as classification rule
 model<-glm(chd ~ sbp+sex, data = d.chd, family = "binomial")
 summary(model)
 ```
 
 ```{r}
-new_data=data.frame(sbp = 140,
-                     sex=1)
-predict(model,new_data,type="response")
-
+#predict the probability of chd for a male with a sbp=140
+new_data = data.frame(sbp = 140,sex=1) 
+p = predict(model,new_data,type="response")
+print(c("The estimated probability of chd for a male with a sbp=140 in the given dataset is", p ))
 ```
-The estimated probability of chd for a male with a sbp=140 in the given dataset is 0.383.
 
 ## d)
+We now use the bootstrap to estimate the uncertainty of the probability derived in b).
 
 ```{r}
-n=nrow(d.chd)
+##start by defining some variables to estimate the probability in each iteration
+n=nrow(d.chd) ##number of observations in each sample
 new_data=data.frame(sbp = 140,
                      sex=1)
 
-estimated_prob = c()
+estimated_prob = c() ##list of probabilities from each bootstrap sample
 beta_0=c()
-B = 1000
+B = 1000 ##iterate through 1000 bootstrap samples
 for (i in 1:B) {
-   index<- sample(n, n, replace = T)
-   model<-glm(chd ~ sbp+sex, data = d.chd, subset = index,     family = "binomial")
-   estimated_prob[i]=predict(model,new_data,type="response")
-   beta_0[i]=model$coefficients[1]
+   index<- sample(n, n, replace = T) ##make a bootstrap sample of the data consisting of n observations each
+   model<-glm(chd ~ sbp+sex, data = d.chd, subset = index,family = "binomial") ##fit a model
+   estimated_prob[i]=predict(model,new_data,type="response") ##save probability for newdata
+   beta_0[i]=model$coefficients[1] ##save intercept
 }
 
 ```
-
 
 We derive the standard error for the set of estimated probabilities.
 
 ```{r}
 standard_error<-sd(estimated_prob)
+print(c("standard error:",standard_error))
 ```
 Our estimation $\hat{p}$ of the probability is the mean of the estimated probabilities from the bootstrap sample.
 Its $95\%$ confidence interval is found by the following formula:
 
 $$\hat{p}\pm 1.96\cdot SD(\hat{p})$$
 ```{r}
-c(mean(estimated_prob) - 1.96 * sd(estimated_prob), mean(estimated_prob) + 1.96 * sd(estimated_prob))
+#calculate confidence interval
+c(mean( estimated_prob) - 1.96 * sd(estimated_prob),mean(estimated_prob) + 1.96 * sd(estimated_prob))
 ```
-
-This means that the true probability of chd for a male with sbp=140 would be found in this interval with probability 0.95. 
+A confidence interval is calculated given a set of observations in order to say something about the true value for chd laying in the interval.This means that the true probability of chd for a male with sbp=140 would be found in this interval with probability 0.95.. In this case the interval is quite big, this means that the there is a great uncertantity when predicting the chd. 
 
 # References
 
