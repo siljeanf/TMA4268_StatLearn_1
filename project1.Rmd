@@ -31,7 +31,6 @@ library(dplyr)
 ```
 
 
-# stupid change
 # Problem 1
 
 
