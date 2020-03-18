@@ -16,30 +16,54 @@ knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.wh
                       cache=TRUE, size="scriptsize")
 ```
 
-#### Help for equation set-up:
-$$
-\begin{aligned}
-E[(y_0-\hat{f}(x_0))^2]&=  &&\text{definition of y0}\\ 
-E[(f(x_0)+\epsilon +\hat{f}(x_0))^2]&=  &&\text{by linearity of the expectation}\\
-E[f(x_0)^2]+E[\epsilon^2]+E[\hat{f}(x_0)^2]-2E[f(x_0)\hat{f}(x_0)]+0&=  &&\text{using the definition of variance}\\
-f(x_0)^2+Var(\epsilon)+Var(\hat{f}(x_0)) +E[\hat{f}(x_0)]^2-2f(x_0)E[\hat{f}(x_0)]&= \\ \underbrace{\text{Var}(\varepsilon)}_{\text{Irreducible error}}+ \underbrace{\text{Var}(\hat{f}(x_0))}_{\text{Variance of prediction}} + \underbrace{\left( f(x_0) - \text{E}[\hat{f}(x_0)] \right)^2}_{\text{Squared bias}}
-\end{aligned}
-$$
 
 # Problem 1
 
 ## a)
+Let's find the ridge regression estimator. Remember that $\hat{\beta}_{Ridge}$ minimizes $RSS+\lambda\sum_{j=1}^p\beta_j^2$. Let's rewrite this in matrix notation.
 
+$$
+\begin{aligned}
+min_{\beta}\{(y-X\beta)^T(y-X\beta)+\lambda \beta^T\beta\}&=  &&\text{develop the expression}\\ 
+min_{\beta}\{y^Ty-2\beta^TX^Ty+\beta^TX^TX\beta+\lambda \beta^T\beta\}&  &&\text{take the derivative with respect to beta and set equal to 0}\\
+-2X^Ty+2X^TX\beta +2\lambda \beta=0 \\
+(X^TX+2\lambda I)\beta=X^Ty\\
+\beta = (X^TX+\lambda I)^{-1}X^Ty
+\end{aligned}
+$$
+Therefore the estimator is $\hat{\beta}_{Ridge}=(X^TX+\lambda I)^{-1}X^Ty$.
 
 ## b)
 
 
+To find the expected value and the variance-covariance matrix of $\hat{\beta}_{Ridge}$ we need to remember the distribution of y, $y\sim N(X\beta,\sigma^2I)$. Therefore we get the expected value: 
+
+$$E(\hat{\beta}_{Ridge})=E((X^TX+\lambda I)^{-1}X^Ty)=(X^TX+\lambda I)^{-1}X^TE(y)=(X^TX+\lambda I)^{-1}X^TX\beta$$
+and the variance-covariance matrix:
+
+$$
+\begin{aligned}
+Var(\hat{\beta}_{Ridge})=
+Var((X^TX+\lambda I)^{-1}X^Ty)&=&&\text{by property of the variance}\\
+(X^TX+\lambda I)^{-1}X^TVar(y)((X^TX+\lambda I)^{-1}X^T)^T&= &&\text{develop the expression}\\
+\sigma^2(X^TX+\lambda I)^{-1}X^TX(X^TX+\lambda I)^{-1}  \\
+\end{aligned}
+$$
+
+
 ## c)
 
-## d)
+True, False, False (in a way yes?), True
 
-```{r, echo=TRUE, eval=TRUE}
+## d)
+```{r}
 library(ISLR)
+library(leaps)
+library(glmnet)
+```
+
+We want to work with the $College$ data. First we split it into a training and a testing set.
+```{r, echo=TRUE, eval=TRUE}
 set.seed(1)
 
 #make train and test set 
@@ -47,15 +71,73 @@ train.ind = sample(1:nrow(College), 0.5 * nrow(College))
 college.train = College[train.ind, ]
 college.test = College[-train.ind, ]
 str(College)
-
 ```
+
+Now we will apply forward selection, using $Outstate$ as a response. We have 18 variables including the response so we will obtain a model including up to 17 variables.
+```{r}
+nb_predictors<-17
+forward<-regsubsets(Outstate~.,college.train,nvmax=17,method="forward")
+sum<-summary(forward)
+```
+
+In Figure \ref{fig:fig1} we can look at the Rss and the adjusted $R^2$ in order to pick how many variables give the optimal result. Remember that we would if the change is not very significant we would rather pick the simplest model. It seems like 5 variables would be good here.
+```{r fig1,fig.cap="Comparison of models with different number of variables. \\label{fig:fig1}"}
+par(mfrow=c(1,2))
+plot(sum$rss,xlab="Number of Variables",ylab="RSS",type="l")
+plot(sum$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+```
+
+Below are the variables chosen when we decide to have 5.
+```{r}
+# The exercise says: Choose a model according to one of the criteria that you know so I don0t think we need CV
+
+nb_selected_pred<-5
+variables<-names(coef(forward,id=nb_selected_pred))
+variables
+```
+
+Now we can look at the summary of our final model as well as the MSE. The MSE is 4572478.
+```{r}
+# can do this another way maybe? 
+model<-lm(Outstate~Private+Room.Board+Terminal+perc.alumni+Expend,college.train)
+summary(model)
+p<-predict(model,newdata=college.test)
+error1<-mean(((college.test$Outstate)-p)^2)
+error1
+```
+
 
 ## e)
 
-```{r, echo=TRUE, eval=TRUE}
+We will now select a model for the same dataset as in (d) but this time with the Lasso method.
 
+```{r}
+x_train<-model.matrix(Outstate~.,college.train)[,-1]
+y_train<-college.train$Outstate
+x_test<-model.matrix(Outstate~.,college.test)[,-1]
+y_test<-college.test$Outstate
+mod.lasso = cv.glmnet(x_train,y_train,alpha=1) #alpha =1 is to use lasso
+lambda.best = mod.lasso$lambda.min
+plot(mod.lasso)
+```
+
+We used cross validation in order to find the best value for $\lambda$. Now we can predict and look at the MSE.
+```{r}
+lasso_mod<-glmnet(x_train,y_train,alpha=1)
+predictions<-predict(lasso_mod,s=lambda.best,newx=x_test)
+error2<-mean((predictions-y_test)^2)
+error2
+```
+The MSE on the test set is now 4264056, so lower than before. The variables that were not put to zero are displayed below.
+
+```{r}
+c<-coef(lasso_mod,s=lambda.best,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables
 
 ```
+
 
 
 # Problem 2
@@ -69,12 +151,12 @@ FALSE, FALSE, TRUE, TRUE
 The basis functions for a cubic spline with knots at each quartile, of variable $X$ are,
 
 $$
-\begin{align}
+\begin{aligned}
 &b_0(X) = 1 && b_4(X) = (X-q_1)_{+}^3 \\
 &b_1(X) = x && b_5(x) = (X-q_2)_{+}^3 \\
 &b_2(X) = x^2 && b_6(X) = (X-q_3)_{+}^3 \\
 &b_3(X)=x^3
-\end{align}
+\end{aligned}
 $$
 
 ## c)
