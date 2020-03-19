@@ -108,8 +108,8 @@ summary(reduced.model)
 
 The reduced model is
 $$ \begin{aligned}
-\textbf{Outstate} &=  - 4047.0191 + 2847.0626 \textbf{Private}+1.2261 \textbf{Room.Board}\\
-&+ 43.0779 \textbf{Terminal}+ 75.1039  \textbf{perc.alumni} +  0.1983  \textbf{Expend}, 
+\textbf{Outstate} &= `r reduced.model$coefficients[1]` + `r reduced.model$coefficients[2]` \textbf{Private}+`r reduced.model$coefficients[3]` \textbf{Room.Board}\\
+&+ `r reduced.model$coefficients[4]` \textbf{Grad.Rate}+ `r reduced.model$coefficients[5]`  \textbf{perc.alumni} +  `r reduced.model$coefficients[6]`  \textbf{Expend}, 
 \end{aligned}$$
 
 ```{r, echo=TRUE, eval=TRUE}
@@ -119,7 +119,7 @@ error1 <- mean(((college.test$Outstate)-p)^2)
 error1
 ```
 The test MSE is
-$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  4010675$$
+$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  `r error1`$$
 
 ## e)
 
@@ -152,9 +152,9 @@ error2
 ```
 
 %%Check if log scale!!
-From cross validation we can observe that the optimal tuning parameter is $\lambda = 5.093201$ as this is the parameter that minimizes the MSE for the training set. 
+From cross validation we can observe that the optimal tuning parameter is $\lambda = `r lambda.best`$ as this is the parameter that minimizes the MSE for the training set. 
 
-The test MSE is now $3744943$, which is lower than what we found for the reduced model using forward selection in d).
+The test MSE is now `r error2`, which is lower than what we found for the reduced model using forward selection in d).
 
 The lasso yields sparse models which involves only a subset of variables. Lasso performs variable selection by forcing some of the coefficient estimates to be exactly zero. The selected variables that was not put to zero are displayed below.
 
@@ -171,7 +171,7 @@ variables
 
 ## a)
 
-FALSE, FALSE, TRUE, TRUE
+FALSE, FALSE, TRUE, FALSE
 
 ## b) 
 
@@ -260,8 +260,8 @@ MSE
 #MSE for smoothing spline
 ?predict.smooth.spline
 pred = predict(fit, newdata=college.train)
-MSE2 = mean( (college.train$Outstate - pred)^2 )
-MSE2
+#MSE2 = mean( (college.train$Outstate - pred)^2 )
+#MSE2
 
 ```
 
@@ -269,7 +269,7 @@ MSE2
 # Problem 3
 
 ## a)
-
+False, Not sure ( usually True but not for large trees?), TRUE, FALSE
 
 ## b)
 
