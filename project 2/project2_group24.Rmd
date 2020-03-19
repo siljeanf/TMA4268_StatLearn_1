@@ -209,11 +209,14 @@ plot(ds6)
 
 ```
 
-$Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. The others seems to have a linear realtionship. Check out the binary variable $Private$.
+From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. Check out the binary variable $Private$???
 
 ## d)
 
+We will now fit several polynomial regression models for $Outstate$ with $Terminal$ as the only covariate. Each polynomial will have a degree from $d=1,..10$. 
+
 ```{r, echo=TRUE, eval=TRUE}
+library(ggplot2)
 
 #make a dataframe
 ds = College[c("Terminal", "Outstate")]
@@ -222,67 +225,95 @@ n = nrow(ds)
 # chosen degrees
 deg = 1:10
 
-# plot of training data
-plot(ds[train.ind, ], col = "darkgrey", main = "Polynomial regression")
-colors = rainbow(length(deg))
+#now iterate over each degree d
+dat = c()  #make a empty variable to store predicted values for each degree
+MSE = list(rep(0, 10))  #make a empty variable to store MSE for each degree
 
-# iterate over all degrees (1:4) - could also use a for-loop here
-MSE = sapply(deg, function(d) {
+for (d in deg) {
     # fit model with this degree
     mod = lm(Outstate ~ poly(Terminal, d), ds[train.ind, ])
-    # add lines to the plot 
-    lines(cbind(ds[train.ind, 1], mod$fit)[order(ds[train.ind, 1]), ], col = colors[d])
-    # calculate mean MSE - this is returned in the MSE variable
-    mean((predict(mod, ds[-train.ind, ]) - ds[-train.ind, 2])^2)
-})
+    
+    #dataframe for Terminal and Outstate showing result for each degree over all samples
+    dat = rbind(dat, data.frame(Terminal = ds[train.ind, 1], Outstate = mod$fit, 
+                                degree = as.factor(rep(d,length(mod$fit)))))
+    # training MSE
+    MSE[d] = mean((predict(mod, ds[-train.ind, ]) - ds[-train.ind, 2])^2)
+}
 
-# add legend to see which color corresponds to which line
-par(c(1,1), xpd=TRUE)
-legend("topright", inset=c(-0.2,0), legend = paste("d =", deg), lty = 1, col = colors)
+# plot fitted values for different degrees
+ggplot(data = ds[train.ind, ], aes(x = Terminal, y = Outstate)) + 
+    geom_point(color = "darkgrey") + labs(title = "Polynomial regression")+
+    geom_line(data = dat, aes(x = Terminal, y = Outstate, color = degree))
+
 
 ```
+
+We will now choice a suitable smoothing spline model to predict $Outstate$ as a function of $Expend$ and plot the fitted function.
 
 ```{r, echo=TRUE, eval=TRUE}
 library(splines)
 
-plot(college.train$Expend, college.train$Outstate, col = "darkgrey", main="Smoothing spline")
+#plot training set for Expend as only covariate
+plot(college.train$Expend, college.train$Outstate, col = "darkgrey", main="Smoothing spline", xlab="Expend", ylab="Outstate")
+#perform CV in order to find optimal number of df
 fit = smooth.spline(college.train$Expend, college.train$Outstate, cv=TRUE)
 fit$df #choose df from CV
+fit$lambda
+
+#add fitted function from smoothing spline
 lines(fit, col="red", lwd=2)
 legend("topright", legend=c("4.6 DF"), col="red", lty=1, lwd=2, cex=.8)
+
+#training MSE
+pred = predict(fit, newdata=college.train)
+MSE2 = mean( (college.train$Outstate - pred$y)^2 )
 ```
-We found the degrees of freedom by doing cross validation.
+
+In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = 4.6$, which gives  the smoothing parameter $\lambda = 0.0075$
+
+We will now calculate the training MSE for the polynomial regresson models and the smoothing spline model.
+For the polynomial regression models we find it easiest to look at the MSE by presenting a plot with MSE for each degree.
 
 ```{r, echo=TRUE, eval=TRUE}
-#MSE for polynomial regression models (1-10)
-MSE
+#MSE for polynomial regression models (1-10) 
+plot(1:10,MSE, type = "o", pch = 16, xlab = "degree", main = "Test error")
+MSE[3]
 
 #MSE for smoothing spline
-?predict.smooth.spline
-pred = predict(fit, newdata=college.train)
-#MSE2 = mean( (college.train$Outstate - pred)^2 )
-#MSE2
+MSE2
 
 ```
-
+The training MSE for the two methods are (discuss is it is as expected!)
 
 # Problem 3
 
 ## a)
-False, Not sure ( usually True but not for large trees?), TRUE, FALSE
+FALSE, TRUE, TRUE, FALSE
 
 ## b)
 
+We will now select the Regression Trees-method in order to predict $Outstate$. We fit two regression trees by dividing our training data into two new sets in order to investigate if we have high variance in our data and should use minimze it. 
+
 ```{r, echo=TRUE, eval=TRUE}
 library(tree)
-tree.mod = tree(Outstate ~ .,college.train)
-summary(tree.mod)
+
+#make new training and testing set 
+new.train.ind = sample(1:nrow(college.train), 0.5 * nrow(college.train))
+new.college.train1 = college.train[new.train.ind, ]
+new.college.train2 = college.train[-new.train.ind, ]
+
+tree.mod1 = tree(Outstate ~ .,new.college.train1)
+tree.mod2 = tree(Outstate ~ .,new.college.train2)
+
 ```
 
 
 ```{r, echo=TRUE, eval=TRUE}
-plot(tree.mod)
-text(tree.mod, pretty = 0)
+plot(tree.mod1)
+text(tree.mod1, pretty = 0)
+
+plot(tree.mod2)
+text(tree.mod2, pretty = 0)
 ```
 
 ```{r, echo=TRUE, eval=TRUE}
@@ -294,6 +325,7 @@ plot(cv.college$size, cv.college$dev, type = "b")
 points(cv.college$size[tree.min], cv.college$dev[tree.min], col = "red", pch = 20)
 
 ```
+
 We see that 7 is on the same level of deviance as for size 10, since this is the smallest number for the size we pick 7. 
 Let us now prune the tree to make it size 7.
 
