@@ -53,10 +53,10 @@ $$
 
 ## c)
 
-True, False, False (in a way yes?), True
+TRUE, FALSE, FALSE, TRUE
 
 ## d)
-```{r}
+```{r, echo=TRUE, eval=TRUE}
 library(ISLR)
 library(leaps)
 library(glmnet)
@@ -66,78 +66,106 @@ We want to work with the $College$ data. First we split it into a training and a
 ```{r, echo=TRUE, eval=TRUE}
 set.seed(1)
 
-#make train and test set 
+#make training and testing set 
 train.ind = sample(1:nrow(College), 0.5 * nrow(College))
 college.train = College[train.ind, ]
 college.test = College[-train.ind, ]
+
+#the structure of the data 
 str(College)
 ```
 
 Now we will apply forward selection, using $Outstate$ as a response. We have 18 variables including the response so we will obtain a model including up to 17 variables.
-```{r}
+```{r, echo=TRUE, eval=TRUE}
 nb_predictors<-17
 forward<-regsubsets(Outstate~.,college.train,nvmax=17,method="forward")
 sum<-summary(forward)
 ```
 
-In Figure \ref{fig:fig1} we can look at the Rss and the adjusted $R^2$ in order to pick how many variables give the optimal result. Remember that we would if the change is not very significant we would rather pick the simplest model. It seems like 5 variables would be good here.
-```{r fig1,fig.cap="Comparison of models with different number of variables. \\label{fig:fig1}"}
+In Figure \ref{fig:fig1} we can look at the RSS and the adjusted $R^2$ in order to pick the number of variables that gives the optimal result. Remember that if the difference is not very significant we would rather pick the simplest model. It seems like 5 variables would be good here.
+
+```{r, echo=TRUE, eval=TRUE, fig1,fig.cap="Comparison of models with different number of variables. \\label{fig:fig1}"}
 par(mfrow=c(1,2))
 plot(sum$rss,xlab="Number of Variables",ylab="RSS",type="l")
 plot(sum$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
 ```
 
-Below are the variables chosen when we decide to have 5.
-```{r}
-# The exercise says: Choose a model according to one of the criteria that you know so I don0t think we need CV
+Below are the chosen variables when we decide to include 5 variables in the reduced model.
+```{r, echo=TRUE, eval=TRUE}
 
 nb_selected_pred<-5
-variables<-names(coef(forward,id=nb_selected_pred))
+variables<-names( coef( forward,id=nb_selected_pred ) )
 variables
 ```
 
-Now we can look at the summary of our final model as well as the MSE. The MSE is 4572478.
-```{r}
-# can do this another way maybe? 
-model<-lm(Outstate~Private+Room.Board+Terminal+perc.alumni+Expend,college.train)
-summary(model)
-p<-predict(model,newdata=college.test)
-error1<-mean(((college.test$Outstate)-p)^2)
-error1
+We will now find the reduced model as well as the MSE (mean squared error) on the test set.
+
+```{r, echo=TRUE, eval=TRUE}
+#fit the reduced model
+reduced.model<-lm(Outstate~Private+Room.Board+Terminal+perc.alumni+Expend,college.train)
+summary(reduced.model)
 ```
 
+The reduced model is
+$$ \begin{aligned}
+\textbf{Outstate} &=  - 4047.0191 + 2847.0626 \textbf{Private}+1.2261 \textbf{Room.Board}\\
+&+ 43.0779 \textbf{Terminal}+ 75.1039  \textbf{perc.alumni} +  0.1983  \textbf{Expend}, 
+\end{aligned}$$
+
+```{r, echo=TRUE, eval=TRUE}
+#find test MSE
+p<-predict(reduced.model,newdata=college.test)
+error1 <- mean(((college.test$Outstate)-p)^2)
+error1
+```
+The test MSE is
+$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  4010675$$
 
 ## e)
 
-We will now select a model for the same dataset as in (d) but this time with the Lasso method.
+We will now select a model for the same dataset as in (d) but this time with the Lasso method. Again, we use both a training and testing set for the data.
 
-```{r}
+```{r, echo=TRUE, eval=TRUE}
+#Make a x matrix and y vector for both the training and testing set
 x_train<-model.matrix(Outstate~.,college.train)[,-1]
 y_train<-college.train$Outstate
 x_test<-model.matrix(Outstate~.,college.test)[,-1]
 y_test<-college.test$Outstate
-mod.lasso = cv.glmnet(x_train,y_train,alpha=1) #alpha =1 is to use lasso
-lambda.best = mod.lasso$lambda.min
-plot(mod.lasso)
+
 ```
 
-We used cross validation in order to find the best value for $\lambda$. Now we can predict and look at the MSE.
-```{r}
-lasso_mod<-glmnet(x_train,y_train,alpha=1)
-predictions<-predict(lasso_mod,s=lambda.best,newx=x_test)
-error2<-mean((predictions-y_test)^2)
+In order to select the best value for the tuning parameter $\lambda$ we will use cross validation.
+
+```{r, echo=TRUE, eval=TRUE,fig2,fig.cap="MSE for different values of log(lambda). \\label{fig:fig2}"}
+set.seed(2)
+
+#perform the Lasso method and choose the best model using CV
+lasso.mod = glmnet(x_train,y_train,alpha=1) #lasso method on train set
+cv.lasso = cv.glmnet(x_train,y_train,alpha=1) #CV on train set
+lambda.best = cv.lasso$lambda.min #select best lambda
+lambda.best
+#do we need this plot ???
+plot(cv.lasso)
+
+#find the test MSE
+predictions<-predict(lasso.mod,s=lambda.best,newx=x_test)
+error2 <- mean((predictions-y_test)^2) #test MSE
 error2
 ```
-The MSE on the test set is now 4264056, so lower than before. The variables that were not put to zero are displayed below.
 
-```{r}
-c<-coef(lasso_mod,s=lambda.best,exact=TRUE)
+From Figure 2 we can observe that the optimal tuning parameter is $\lambda = 120.4282$ as this is the parameter that minimizes the MSE for the training set. 
+
+The test MSE is now $3744943$, which is lower than what we found for the reduced model using forward selection in d).
+
+The lasso yields sparse models which involves only a subset of variables. Lasso performs variable selection by forcing some of the coefficient estimates to be exactly zero. The selected variables that was not put to zero are displayed below.
+
+```{r, echo=TRUE, eval=TRUE}
+c<-coef(lasso.mod,s=lambda.best,exact=TRUE)
 inds<-which(c!=0)
 variables<-row.names(c)[inds]
 variables
 
 ```
-
 
 
 # Problem 2
@@ -161,14 +189,31 @@ $$
 
 ## c)
 
-We will now investigate the realtionship between Outstate and the 6 predictors as described in the problem. 
+We will now investigate the realtionship between $Outstate$ and the 6 of the predictors, $Private$, $Room.Board$, $Terminal$, $perc.alumni$, $Expend$, and $Grad.Rate$. 
 
 ```{r, echo=TRUE, eval=TRUE}
+library(ggplot2)
+?ggplot
+ggplot(college.train, mapping = aes(x=Room.Board,y=Outstate) + geom_point() )
 
+'''
+ds1 = college.train[c("Outstate", "Private")] #qualitative variable ???
+ds2 = college.train[c("Outstate", "Room.Board")]
+ds3 = college.train[c("Outstate", "Terminal")]
+ds4 = college.train[c("Outstate", "perc.alumni")]
+ds5 = college.train[c("Outstate", "Expend")]
+ds6 = college.train[c("Outstate", "Grad.Rate")]
+
+par(mfrow=c(4,2))
+plot(ds1)
+plot(ds2)
+plot(ds3)
+plot(ds4)
+plot(ds5)
+plot(ds6)
+'''
 
 ```
-
-//discuss which variables that seem to have a linear realtionship and benefit from non-linear transformations - splines
 
 
 ## d)
