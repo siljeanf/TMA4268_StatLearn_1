@@ -319,7 +319,7 @@ mse_pure <- mean((yhat- college.test$Outstate)^2)
 mse_pure
 
 ```
-## maybe we dont need to actually do the pruning, and go directly  boosting? 
+### maybe we dont need to actually do the pruning, and go directly  boosting? 
 Now we try pruning and check whether this will improve performance.
 
 ```{r, echo=TRUE, eval=TRUE}
@@ -336,8 +336,8 @@ points(cv.college$size[tree.min], cv.college$dev[tree.min], col = "red", pch = 2
 We see that 7 is on the same level of deviance as for size 10, since this is the smallest number for the size we pick 7. Let us now prune the tree to make it size 7.
 ```{r, echo=TRUE, eval=TRUE}
 pr.tree = prune.tree(tree.mod1, best = 7)
-plot(pr.tree)
-text(pr.tree, pretty = 0)
+#plot(pr.tree)
+#text(pr.tree, pretty = 0)
 
 #find test mse
 yhat.prune = predict(pr.tree, newdata = college.test, n.trees = 500)
@@ -377,52 +377,78 @@ The test MSE for the boosted tree, $MSE_{boosted} = `r mse_boost`$ is smaller th
 ## c)
 
 We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Boosted regression trees.
-
 ```{r, echo=TRUE, eval=TRUE}
-MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,mse_boost)
-par(xpd=T, mar=par()$mar+c(0,0,0,5))
-plot(MSE, main="test MSE for different methods", xlab="methods", ylab="test MSE")
-points(1, MSE[1], col="red", lwd=2)
-points(2, MSE[2], col="blue", lwd=2)
-points(3, MSE[3], col="purple", lwd=2)
-points(4, MSE[4], col="brown", lwd=2)
-points(5, MSE[5], col="cyan", lwd=2)
-legend("topright", inset=c(0,0) , horiz=TRUE,cex = .635, c("forward","Lasso", "Polynomial reg", "Smoothing spline", "Boosted regtree"), col=c("red", "blue", "purple", "brown", "cyan"), pch=1, )
-#model selection methods
-mse_fwd
-mse_lasso
 
-#non-linear methods
-min(MSE_poly)
-MSE_spline
-
-#boosted regression tree
-mse_pure
-mse_boost
-
-
-?legend
+MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,mse_pure, mse_boost)
+Method <- c("Forward selection", "Lasso", "Polynomial regression", "Smoothing spline", "Regression Tree", "Boosting")
+df <- data.frame(Method, MSE)
+kable(df)
 ```
-**I gave on making this a nice plot....you can try if you want :) **
+
 
 The method performing best in terms of prediction error is the boosted regression tree. But if the aim is to develop a interpretable model we would probably have chosen the regression tree.
 
 
 # Problem 4
 
-## a)
+Start by loading the data of $diabetes$ from a population of women.
 
+```{r, echo=TRUE, eval=TRUE}
+id <- "1Fv6xwKLSZHldRAC1MrcK2mzdOYnbgv0E"  # google file ID
+d.diabetes <- dget(sprintf("https://docs.google.com/uc?id=%s&export=download", 
+    id))
+d.train = d.diabetes$ctrain
+d.test = d.diabetes$ctest
+```
+
+## a)
+In order to anseer on the Mulitple choice we have to present the training data.
+
+```{r, echo=TRUE, eval=TRUE}
+summary(d.train)
+max(d.train$npreg)#max nr of pregnancies
+head(d.train) #overview of data
+plot(d.train) #look at correlation between variables
+plot(diabetes~npreg, data=d.train)
+
+```
+TRUE, TRUE, TRUE, FALSE (not sure about the first and last)
 
 ## b)
 
+We will now fit a support vector classifier with linear boundary and a support vector machine with radial boundary to find good functions that predict the diabetes status of a patient. 
+
+```{r, echo=TRUE, eval=TRUE}
+
+#make response variable a factor
+d.train$diabetes <- as.factor(d.train$diabetes)
+d.test$diabetes <- as.factor(d.test$diabetes)
+
+set.seed(10111)
+
+#make a grid
+
+
+#
+```
+
 ## c)
 
+```{r, echo=TRUE, eval=TRUE}
+
+```
 
 ## d)
 
+```{r, echo=TRUE, eval=TRUE}
+
+```
 # Problem 5
 
 ## a)
+```{r, echo=TRUE, eval=TRUE}
+
+```
 
 ## b)
 
