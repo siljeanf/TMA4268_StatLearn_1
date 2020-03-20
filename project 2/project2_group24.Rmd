@@ -193,6 +193,7 @@ We will now investigate the realtionship between $Outstate$ and the 6 of the pre
 ```{r, echo=TRUE, eval=TRUE}
 
 ds1 = college.train[c("Private", "Outstate")] #binary variable
+ds1
 ds2 = college.train[c("Room.Board", "Outstate")]
 ds3 = college.train[c("Terminal", "Outstate")]
 ds4 = college.train[c("perc.alumni", "Outstate")]
@@ -206,10 +207,9 @@ plot(ds3)
 plot(ds4)
 plot(ds5)
 plot(ds6)
-
 ```
 
-From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. Check out the binary variable $Private$???
+From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. The binary variable $Private$ is presented through a boxplot. Generally the data seem to cathegorize quite well into these two classes of private and public universites where the trend is a higher Outlier for private universites, except for some outliers for public universities where the outcome is very high and therefore can seem to belong to a private universities. Anyway, we cannot transform a binary variable. 
 
 ## d)
 
