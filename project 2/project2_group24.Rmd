@@ -115,11 +115,11 @@ $$ \begin{aligned}
 ```{r, echo=TRUE, eval=TRUE}
 #find test MSE
 p<-predict(reduced.model,newdata=college.test)
-error1 <- mean(((college.test$Outstate)-p)^2)
-error1
+mse_fwd <- mean(((college.test$Outstate)-p)^2)
+mse_fwd
 ```
 The test MSE is
-$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  `r error1`$$
+$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  `r mse_fwd`$$
 
 ## e)
 
@@ -147,14 +147,14 @@ lambda.best
 
 #find the test MSE
 predictions<-predict(lasso.mod,s=lambda.best,newx=x_test)
-error2 <- mean((predictions-y_test)^2) #test MSE
-error2
+mse_lasso <- mean((predictions-y_test)^2) #test MSE
+mse_lasso
 ```
 
 %%Check if log scale!!
 From cross validation we can observe that the optimal tuning parameter is $\lambda = `r lambda.best`$ as this is the parameter that minimizes the MSE for the training set. 
 
-The test MSE is now `r error2`, which is lower than what we found for the reduced model using forward selection in d).
+The test MSE is now `r mse_lasso`, which is lower than what we found for the reduced model using forward selection in d).
 
 The lasso yields sparse models which involves only a subset of variables. Lasso performs variable selection by forcing some of the coefficient estimates to be exactly zero. The selected variables that was not put to zero are displayed below.
 
@@ -193,7 +193,6 @@ We will now investigate the realtionship between $Outstate$ and the 6 of the pre
 ```{r, echo=TRUE, eval=TRUE}
 
 ds1 = college.train[c("Private", "Outstate")] #binary variable
-ds1
 ds2 = college.train[c("Room.Board", "Outstate")]
 ds3 = college.train[c("Terminal", "Outstate")]
 ds4 = college.train[c("perc.alumni", "Outstate")]
@@ -209,7 +208,7 @@ plot(ds5)
 plot(ds6)
 ```
 
-From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. The binary variable $Private$ is presented through a boxplot. Generally the data seem to cathegorize quite well into these two classes of private and public universites where the trend is a higher Outlier for private universites, except for some outliers for public universities where the outcome is very high and therefore can seem to belong to a private universities. Anyway, we cannot transform a binary variable. 
+From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. The binary variable $Private$ is presented through a boxplot. Generally the data seem to cathegorize quite well into these two classes of private and public universites where the trend is a higher out-of-state tuition for private universites, except for some outliers for public universities where the outcome is very high and therefore can seem to belong to a private universities. Anyway, we cannot transform a binary variable. 
 
 ## d)
 
@@ -227,8 +226,7 @@ deg = 1:10
 
 #now iterate over each degree d
 dat = c()  #make a empty variable to store predicted values for each degree
-MSE = list(rep(0, 10))  #make a empty variable to store MSE for each degree
-
+MSE_poly = c(rep(0,10))  #make a empty variable to store MSE for each degree
 for (d in deg) {
     # fit model with this degree
     mod = lm(Outstate ~ poly(Terminal, d), ds[train.ind, ])
@@ -237,7 +235,7 @@ for (d in deg) {
     dat = rbind(dat, data.frame(Terminal = ds[train.ind, 1], Outstate = mod$fit, 
                                 degree = as.factor(rep(d,length(mod$fit)))))
     # training MSE
-    MSE[d] = mean((predict(mod, ds[-train.ind, ]) - ds[-train.ind, 2])^2)
+    MSE_poly[d] = mean((predict(mod, ds[-train.ind, ]) - ds[-train.ind, 2])^2)
 }
 
 # plot fitted values for different degrees
@@ -257,8 +255,8 @@ library(splines)
 plot(college.train$Expend, college.train$Outstate, col = "darkgrey", main="Smoothing spline", xlab="Expend", ylab="Outstate")
 #perform CV in order to find optimal number of df
 fit = smooth.spline(college.train$Expend, college.train$Outstate, cv=TRUE)
-fit$df #choose df from CV
-fit$lambda
+df <- fit$df #choose df from CV
+l <- fit$lambda
 
 #add fitted function from smoothing spline
 lines(fit, col="red", lwd=2)
@@ -266,21 +264,21 @@ legend("topright", legend=c("4.6 DF"), col="red", lty=1, lwd=2, cex=.8)
 
 #training MSE
 pred = predict(fit, newdata=college.train)
-MSE2 = mean( (college.train$Outstate - pred$y)^2 )
+MSE_spline = mean( (college.train$Outstate - pred$y)^2 )
 ```
 
-In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = 4.6$, which gives  the smoothing parameter $\lambda = 0.0075$
+In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = `r df`$, which gives  the smoothing parameter $\lambda = `r l`$
 
 We will now calculate the training MSE for the polynomial regresson models and the smoothing spline model.
 For the polynomial regression models we find it easiest to look at the MSE by presenting a plot with MSE for each degree.
 
 ```{r, echo=TRUE, eval=TRUE}
 #MSE for polynomial regression models (1-10) 
-plot(1:10,MSE, type = "o", pch = 16, xlab = "degree", main = "Test error")
-MSE[3]
+plot(1:10,MSE_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
+min(MSE_poly)
 
 #MSE for smoothing spline
-MSE2
+MSE_spline
 
 ```
 The training MSE for the two methods are (discuss is it is as expected!)
@@ -292,33 +290,42 @@ FALSE, TRUE, TRUE, FALSE
 
 ## b)
 
-We will now select the Regression Trees-method in order to predict $Outstate$. We fit two regression trees by dividing our training data into two new sets in order to investigate if we have high variance in our data and should use minimze it. 
+To predict $Outstate$ we first try fitting the simple tree-based method, Regression Trees. Since we have learned that decision trees often suffer from high variance we will dividie our training dato into two new sets and fit a tree on each. If this is the case we will get two quite different trees. 
 
 ```{r, echo=TRUE, eval=TRUE}
 library(tree)
+set.seed(1)
 
-#make new training and testing set 
+#make new training and testing set - random split
 new.train.ind = sample(1:nrow(college.train), 0.5 * nrow(college.train))
 new.college.train1 = college.train[new.train.ind, ]
 new.college.train2 = college.train[-new.train.ind, ]
 
+#fit a tree on the full data set and two new trees with the two new traning sets
+full.tree = tree(Outstate ~ .,college.train) #full tree
 tree.mod1 = tree(Outstate ~ .,new.college.train1)
 tree.mod2 = tree(Outstate ~ .,new.college.train2)
 
-```
-
-
-```{r, echo=TRUE, eval=TRUE}
+#plot the two tree based on a smaller part of the training set
+par(mfrow=c(1,2))
 plot(tree.mod1)
 text(tree.mod1, pretty = 0)
-
 plot(tree.mod2)
 text(tree.mod2, pretty = 0)
+
+#find test MSE for full tree
+yhat = predict(full.tree, newdata = college.test, n.trees = 500)
+mse_pure <- mean((yhat- college.test$Outstate)^2)
+mse_pure
+
 ```
+## maybe we dont need to actually do the pruning, and go directly  boosting? 
+Now we try pruning and check whether this will improve performance.
 
 ```{r, echo=TRUE, eval=TRUE}
-set.seed(4268)
-cv.college = cv.tree(tree.mod)
+
+set.seed(1)
+cv.college = cv.tree(full.tree)
 tree.min = which.min(cv.college$dev)
 best = cv.college$size[tree.min]
 plot(cv.college$size, cv.college$dev, type = "b")
@@ -326,23 +333,81 @@ points(cv.college$size[tree.min], cv.college$dev[tree.min], col = "red", pch = 2
 
 ```
 
-We see that 7 is on the same level of deviance as for size 10, since this is the smallest number for the size we pick 7. 
-Let us now prune the tree to make it size 7.
-
-
+We see that 7 is on the same level of deviance as for size 10, since this is the smallest number for the size we pick 7. Let us now prune the tree to make it size 7.
 ```{r, echo=TRUE, eval=TRUE}
-pr.tree = prune.tree(tree.mod, best = 7)
+pr.tree = prune.tree(tree.mod1, best = 7)
 plot(pr.tree)
 text(pr.tree, pretty = 0)
 
+#find test mse
+yhat.prune = predict(pr.tree, newdata = college.test, n.trees = 500)
+mse.prune <- mean((yhat.prune- college.test$Outstate)^2)
+mse.prune
+
 ```
+### done with pruning (maybe remove the pruning part ?)
+
+We observe that the two decision trees above are quite different where different variables act as the most important factors for splitting. We conclude that the regression tree therefore suffer from high variance. We will try the boosting approach in order to train the tree and decrease the variance. The boosting approach grows several trees where each tree is grown using information from previously grown trees. The final predicitor is a weighted sum of the trees. We have three tuning parameters: the number of trees $B$, the shrinkage parameter $\lambda$ and the number of splits in each tree (interaction depth) $d$. These parameters can be decided with cross validation.
+
+```{r, echo=TRUE, eval=TRUE}
+library(gbm)
+set.seed(1)
+
+#fit a boosted tree to the training data - use CV in order to decide the tuning parameters
+boost.cv = gbm(Outstate ~ .,data=college.train, distribution="gaussian", cv.folds = 10)
+boost.cv$n.trees
+
+#check relative importance of variables 
+summary(boost.cv, plotit = FALSE)
+
+```
+
+We notice that $Expend$ has a very high relative influence and therefore seems to be the most important variable in the data.
+We will now look at the test MSE for the method. 
+```{r, echo=TRUE, eval=TRUE}
+
+yhat.boost = predict(boost.cv, newdata = college.test)
+mse_boost <- mean((yhat.boost - college.test$Outstate)^2)
+mse_boost
+
+```
+
+The test MSE for the boosted tree, $MSE_{boosted} = `r mse_boost`$ is smaller than for the Regression tree approach, $MSE_{non-boosted} = `r mse_pure`$. Therefore the boosted tree will probably do a better prediciton of the response. **Write something about pros/cons for the chosen method (boosting) maybe compared to pure regression trees.**
 
 ## c)
 
+We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Boosted regression trees.
+
 ```{r, echo=TRUE, eval=TRUE}
+MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,mse_boost)
+par(xpd=T, mar=par()$mar+c(0,0,0,5))
+plot(MSE, main="test MSE for different methods", xlab="methods", ylab="test MSE")
+points(1, MSE[1], col="red", lwd=2)
+points(2, MSE[2], col="blue", lwd=2)
+points(3, MSE[3], col="purple", lwd=2)
+points(4, MSE[4], col="brown", lwd=2)
+points(5, MSE[5], col="cyan", lwd=2)
+legend("topright", inset=c(0,0) , horiz=TRUE,cex = .635, c("forward","Lasso", "Polynomial reg", "Smoothing spline", "Boosted regtree"), col=c("red", "blue", "purple", "brown", "cyan"), pch=1, )
+#model selection methods
+mse_fwd
+mse_lasso
+
+#non-linear methods
+min(MSE_poly)
+MSE_spline
+
+#boosted regression tree
+mse_pure
+mse_boost
 
 
+?legend
 ```
+**I gave on making this a nice plot....you can try if you want :) **
+
+The method performing best in terms of prediction error is the boosted regression tree. But if the aim is to develop a interpretable model we would probably have chosen the regression tree.
+
+
 # Problem 4
 
 ## a)
