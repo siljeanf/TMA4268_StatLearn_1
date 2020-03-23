@@ -290,7 +290,7 @@ FALSE, TRUE, TRUE, FALSE
 
 ## b)
 
-To predict $Outstate$ we first try fitting the simple tree-based method, Regression Trees. Since we have learned that decision trees often suffer from high variance we will dividie our training dato into two new sets and fit a tree on each. If this is the case we will get two quite different trees. 
+To predict $Outstate$ we first try fitting the simple tree-based method, Regression Trees. Since we have learned that decision trees often suffer from high variance we will divide our training data into two new sets and fit a tree on each. If this is the case we will get two quite different trees. 
 
 ```{r, echo=TRUE, eval=TRUE}
 library(tree)
@@ -412,6 +412,12 @@ plot(d.train) #look at correlation between variables
 plot(diabetes~npreg, data=d.train)
 
 ```
+
+```{r, echo=TRUE, eval=TRUE}
+ggplot(d.train,aes(x=glu,y=bmi,color=diabetes))+geom_point()
+```
+
+
 TRUE, TRUE, TRUE, FALSE (not sure about the first and last)
 
 ## b)
@@ -434,9 +440,8 @@ set.seed(10111)
 
 ## c)
 
-```{r, echo=TRUE, eval=TRUE}
 
-```
+
 
 ## d)
 
@@ -452,26 +457,27 @@ GeneData <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
 colnames(GeneData)[1:20] = paste(rep("H", 20), c(1:20), sep = "")
 colnames(GeneData)[21:40] = paste(rep("D", 20), c(1:20), sep = "")
 row.names(GeneData) = paste(rep("G", 1000), c(1:1000), sep = "")
-GeneData=t(GeneData)
 ```
 
 ## a)
 
 
-Perform hierarchical clustering with complete, single and average linkage using both Euclidean distance and correlation-based distance on the dataset. Plot the dendograms. Hint: You can use par(mfrow=c(1,3)) to plot all three dendograms on one line or par(mfrow=c(2,3)) to plot all six together.
+We start by performing hierarchical clustering on the dataset. We try the complete, single and average linkage for both the Euclidian and correlation-based distance.
 
 ```{r, echo=TRUE, eval=TRUE}
-hc.eucl.complete=hclust(dist(GeneData,method="euclidian"), method="complete")
-hc.eucl.average=hclust(dist(GeneData,method="euclidian"), method="average")
-hc.eucl.single=hclust(dist(GeneData,method="euclidian"), method="single")
+hc.eucl.complete=hclust(dist(t(GeneData),method="euclidian"), method="complete")
+hc.eucl.average=hclust(dist(t(GeneData),method="euclidian"), method="average")
+hc.eucl.single=hclust(dist(t(GeneData),method="euclidian"), method="single")
 ```
 
 ```{r, echo=TRUE, eval=TRUE}
-correlation<-as.dist(1-cor(t(GeneData)))
+correlation<-dist(cor(GeneData))
 hc.corr.complete=hclust(correlation, method="complete")
 hc.corr.average=hclust(correlation, method="average")
 hc.corr.single=hclust(correlation, method="single")
 ```
+
+
 
 ```{r, echo=TRUE, eval=TRUE}
 par(mfrow=c(2,3))
@@ -484,11 +490,12 @@ plot(hc.corr.single, main="Single Linkage, correlation-based distance", xlab="",
 
 ```
 
-
+The dendograms seem to recognize that there are two different groups.
 ## b)
 
 
 We now use the dendograms to cluster the tissues into two groups.
+
 ```{r, echo=TRUE, eval=TRUE}
 cutree(hc.eucl.complete, 2)
 cutree(hc.eucl.average, 2)
@@ -500,47 +507,60 @@ cutree(hc.corr.average, 2)
 cutree(hc.corr.single, 2)
 ```
 
-We see that all three linkage with the euclidian distance perform perfectly. On the other hand, the correlation-based distance is not optimal. With complete and average linkage it puts too many observations in the second group. The single linkage puts all observations in one group, except one.
-Therefore when we know the true state of the tissue, the euclidian distance performs best, with any linkage.
+We know that the first 20 come from one group and the rest from the other group. Therefore it seems like all linkage and distance measure perform perfectly.
 
 ## c)
 
 
 
+The elements of the vector $\phi$ are called loadings and define a direction in the feature space along which the data varies the most. The data is a $n\times p$ matrix X.
+
+
+For the first principal component we want $Z_1=\phi_1X$ subject to $||\phi_1||_2=1$. We want $Z_1$ to have the highest possible variance $V(Z_1)=\phi_1^T\Sigma\phi_1$, where $\Sigma$ is the covariance matrix of X.
+The first principal component scores are then the column eigenvector corresponding to the largest eigenvalue of $\Sigma$.
 ## d)
 
 
-```{r, echo=TRUE, eval=TRUE}
-color<-c(rep(1,20),rep(2,20))
-```
 
 ```{r, echo=TRUE, eval=TRUE}
-pr.out=prcomp(GeneData, scale=TRUE)
-plot(pr.out$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
+color<-c(rep(1,200),rep(2,300))
 ```
 
+How to color based on tissues group of patients??? 
+
 ```{r, echo=TRUE, eval=TRUE}
-pve=100*pr.out$sdev^2/sum(pr.out$sdev^2)
+pca_gene=prcomp(GeneData, scale=TRUE)
+plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
+```
+
+Now we calculate the proportion of variance explained (PVE) by the 5 first components.
+```{r, echo=TRUE, eval=TRUE}
+pve=100*pca_gene$sdev^2/sum(pca_gene$sdev^2)
 cumsum(pve)[5]
 ```
-21 percent of variance explained by first 5 PC (?)
+About 28 percent of the variance is explained by first 5 PC (?)
 
+```{r, echo=TRUE, eval=TRUE}
 
+```
 
 ## e)
+Use your results from PCA to find which genes that vary the most accross the two groups.
+??
+```{r, echo=TRUE, eval=TRUE}
 
+nyt_loading = pca_gene$rotation[, 1:2]
+informative_loadings = rbind(head(nyt_loading[order(nyt_loading[, 1], decreasing = TRUE), 
+    ]), head(nyt_loading[order(nyt_loading[, 2], decreasing = TRUE), ]))
 
+biplot(x = pca_gene$x[, 1:2], y = informative_loadings, scale = 0)
+```
 ## f)
 
 ```{r, echo=TRUE, eval=TRUE}
-
+km.out = kmeans(t(GeneData), 2, nstart = 20)
+km.out$cluster
 ```
-
-```{r, echo=TRUE, eval=TRUE}
-
-```
-
-
 
 
 # References
