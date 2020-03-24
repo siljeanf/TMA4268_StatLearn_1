@@ -418,20 +418,22 @@ GeneData <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
 colnames(GeneData)[1:20] = paste(rep("H", 20), c(1:20), sep = "")
 colnames(GeneData)[21:40] = paste(rep("D", 20), c(1:20), sep = "")
 row.names(GeneData) = paste(rep("G", 1000), c(1:1000), sep = "")
+GeneData<-t(GeneData)
 ```
+
 
 ## a)
 
-We start by performing hierarchical clustering on the dataset. We try the complete, single and average linkage for both the Euclidian and correlation-based distance.
+We start by performing hierarchical clustering on the dataset. We try the complete, single and average linkage for both the Euclidian and correlation-based distance. We transposed the data in order to cluster the tissues into the two patient groups.
 
 ```{r, echo=TRUE, eval=TRUE}
-hc.eucl.complete=hclust(dist(t(GeneData),method="euclidian"), method="complete")
-hc.eucl.average=hclust(dist(t(GeneData),method="euclidian"), method="average")
-hc.eucl.single=hclust(dist(t(GeneData),method="euclidian"), method="single")
+hc.eucl.complete=hclust(dist(GeneData,method="euclidian"), method="complete")
+hc.eucl.average=hclust(dist(GeneData,method="euclidian"), method="average")
+hc.eucl.single=hclust(dist(GeneData,method="euclidian"), method="single")
 ```
 
 ```{r, echo=TRUE, eval=TRUE}
-correlation<-dist(cor(GeneData))
+correlation<-dist(cor(t(GeneData)))
 hc.corr.complete=hclust(correlation, method="complete")
 hc.corr.average=hclust(correlation, method="average")
 hc.corr.single=hclust(correlation, method="single")
@@ -447,12 +449,10 @@ plot(hc.eucl.single, main="Single Linkage, Euclidian distance", xlab="", sub="",
 plot(hc.corr.complete,main="Complete Linkage, correlation-based distance", xlab="", sub="", cex=.9)
 plot(hc.corr.average, main="Average Linkage, correlation-based distance", xlab="", sub="", cex=.9)
 plot(hc.corr.single, main="Single Linkage, correlation-based distance", xlab="", sub="", cex=.9)
-
 ```
 
 The dendograms seem to recognize that there are two different groups.
 ## b)
-
 
 We now use the dendograms to cluster the tissues into two groups.
 
@@ -467,8 +467,10 @@ cutree(hc.corr.average, 2)
 cutree(hc.corr.single, 2)
 ```
 
-We know that the first 20 come from one group and the rest from the other group. Therefore it seems like all linkage and distance measure perform perfectly.
+We know that the first 20 tissues come from healthy patients and the last 20 from diseased ones. Therefore it seems like all linkage and distance measures perform perfectly.
 
+
+ASK PEOPLE??? 
 ## c)
 
 
@@ -478,17 +480,16 @@ The elements of the vector $\phi$ are called loadings and define a direction in 
 
 For the first principal component we want $Z_1=\phi_1X$ subject to $||\phi_1||_2=1$. We want $Z_1$ to have the highest possible variance $V(Z_1)=\phi_1^T\Sigma\phi_1$, where $\Sigma$ is the covariance matrix of X.
 The first principal component scores are then the column eigenvector corresponding to the largest eigenvalue of $\Sigma$.
+
 ## d)
 
-
-
 ```{r, echo=TRUE, eval=TRUE}
-color<-c(rep(1,200),rep(2,300))
+color<-c(rep(1,20),rep(2,20))
 ```
 
 How to color based on tissues group of patients??? 
   
-  ```{r, echo=TRUE, eval=TRUE}
+```{r, echo=TRUE, eval=TRUE}
 pca_gene=prcomp(GeneData, scale=TRUE)
 plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
 ```
@@ -498,16 +499,13 @@ Now we calculate the proportion of variance explained (PVE) by the 5 first compo
 pve=100*pca_gene$sdev^2/sum(pca_gene$sdev^2)
 cumsum(pve)[5]
 ```
-About 28 percent of the variance is explained by first 5 PC (?)
-
-```{r, echo=TRUE, eval=TRUE}
-
-```
+About 21 percent of the variance is explained by first 5 PCs.
 
 ## e)
 Use your results from PCA to find which genes that vary the most accross the two groups.
 ??
-  ```{r, echo=TRUE, eval=TRUE}
+
+```{r, echo=TRUE, eval=TRUE}
 
 nyt_loading = pca_gene$rotation[, 1:2]
 informative_loadings = rbind(head(nyt_loading[order(nyt_loading[, 1], decreasing = TRUE), 
@@ -518,10 +516,17 @@ biplot(x = pca_gene$x[, 1:2], y = informative_loadings, scale = 0)
 ## f)
 
 ```{r, echo=TRUE, eval=TRUE}
-km.out = kmeans(t(GeneData), 2, nstart = 20)
+km.out = kmeans(GeneData,2, nstart = 20)
 km.out$cluster
 ```
 
+```{r, echo=TRUE, eval=TRUE}
+
+```
+
+```{r, echo=TRUE, eval=TRUE}
+
+```
 # References
 
 James, G., D. Witten, T. Hastie, and R. Tibshirani. 2013. An Introduction to Statistical Learning with Applications in R. New York: Springer.
