@@ -364,36 +364,38 @@ TRUE, TRUE, TRUE, FALSE (not sure about last)
 We will now fit a support vector classifier with linear boundary and a support vector machine with radial boundary to find good functions that predict the diabetes status of a patient. 
 
 ```{r, echo=TRUE, eval=TRUE}
-'''
+
 library(e1071)
 set.seed(10111)
 
-
-#make response variable a factor
-d.train$diabetes <- as.factor(d.train$diabetes)
-d.test$diabetes <- as.factor(d.test$diabetes)
-
-#data frame
-dat.train = data.frame(x = d.train[, 1:length(dat.train)], y = d.train$diabetes)
-dat.test = data.frame(x = d.test[, 1:length(dat.train)], y = d.test$diabetes)
-
-#make a grid function
-make.grid = function(x, n = 75) {
-    # takes as input the data matrix x and number of grid points n in
-    # each direction the default value will generate a 75x75 grid
-    grange = apply(x, 2, range)  # range for x1 and x2
-    x1 = seq(from = grange[1, 1], to = grange[2, 1], length.out = n)  # sequence from the lowest to the upper value of x1
-    x2 = seq(from = grange[1, 2], to = grange[2, 2], length.out = n)  # sequence from the lowest to the upper value of x2
-    expand.grid(X1 = x1, X2 = x2)  #create a uniform grid according to x1 and x2 values
-}
-
 #Fit a support vector classifier (linear boundary) 
-svmfit = svm(d.train$diabetes ~ ., data = dat.train, kernel = "linear", cost = 10, scale = FALSE)
+svm.linear = svm(formula = d.train$diabetes ~ ., 
+                 data = d.train, 
+                 kernel = 'linear')
 
-x = as.matrix(dat.train[, c("X1", "X2")])
-xgrid = make.grid(dat.)
-ygrid = predict(svmfit, xgrid)
-'''
+#fit a support vector machine (radial boundary)
+svm.radial = svm(formula = d.train$diabetes ~ ., 
+                 data = d.train, 
+                 kernel = 'radial')
+
+#CV to find good cost parameter and gamma
+cv.linear = tune(svm.linear, d.train$diabetes ~ ., data=d.train, kernel = "linear", ranges = list(cost = c(0.001,0.01,0.1,1,5,10,100 )))
+
+tune.out <- tune(svm.radial, d.train$diabetes ~., data = d.train, kernel = "radial",
+                 ranges = list(cost = c(0.1,1,10,100,1000), gamma = c(0.5,1,2,3,4) ))
+
+#CV to find good cost and
+
+# Predicting the response with test set  
+y.pred = predict(svm.linear, newdata = d.test)
+
+# Making the Confusion Matrix 
+cm = table(predict = y.pred, truth = d.test$diabetes)
+
+#misclassification error rates
+
+
+```
 ```
 
 
