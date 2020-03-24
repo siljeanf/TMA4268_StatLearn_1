@@ -163,7 +163,6 @@ c<-coef(lasso.mod,s=lambda.best,exact=TRUE)
 inds<-which(c!=0)
 variables<-row.names(c)[inds]
 variables
-
 ```
 
 
@@ -281,111 +280,50 @@ min(MSE_poly)
 MSE_spline
 
 ```
-The training MSE for the two methods are (discuss is it is as expected!)
+The training MSE for the two methods are (Read about this!)
+
+(discuss is it is as expected!)
 
 # Problem 3
 
 ## a)
-FALSE, TRUE, TRUE, FALSE
+FALSE, FALSE, TRUE, FALSE
 
 ## b)
 
-To predict $Outstate$ we first try fitting the simple tree-based method, Regression Trees. Since we have learned that decision trees often suffer from high variance we will divide our training data into two new sets and fit a tree on each. If this is the case we will get two quite different trees. 
+To predict $Outstate$ we will choose 
+
+PROS and CONS!
+One known disadvantage of regression trees are that they usually have a high variance, and are not very robust. The idea of bagging is to grow many trees to fix those two problems. Bagging is a special case of another approach called random forrests. In random forrests we allow only certain number of predictors $m$ to be selected at each node, which deacreases the correlation between each tree. 
+
+The tuning parameter in random forrests is the number of predictors you are able to choose between at each split. It is recommended to use $m=p/3$ variables when building a regression trees. Recall that we have $17$ parameters in our dataset. We will therefore pick $m=5$.
 
 ```{r, echo=TRUE, eval=TRUE}
-library(tree)
-set.seed(1)
-
-#make new training and testing set - random split
-new.train.ind = sample(1:nrow(college.train), 0.5 * nrow(college.train))
-new.college.train1 = college.train[new.train.ind, ]
-new.college.train2 = college.train[-new.train.ind, ]
-
-#fit a tree on the full data set and two new trees with the two new traning sets
-full.tree = tree(Outstate ~ .,college.train) #full tree
-tree.mod1 = tree(Outstate ~ .,new.college.train1)
-tree.mod2 = tree(Outstate ~ .,new.college.train2)
-
-#plot the two tree based on a smaller part of the training set
-par(mfrow=c(1,2))
-plot(tree.mod1)
-text(tree.mod1, pretty = 0)
-plot(tree.mod2)
-text(tree.mod2, pretty = 0)
-
-#find test MSE for full tree
-yhat = predict(full.tree, newdata = college.test, n.trees = 500)
-mse_pure <- mean((yhat- college.test$Outstate)^2)
-mse_pure
-
-```
-### maybe we dont need to actually do the pruning, and go directly  boosting? 
-Now we try pruning and check whether this will improve performance.
-
-```{r, echo=TRUE, eval=TRUE}
+library(randomForest)
 
 set.seed(1)
-cv.college = cv.tree(full.tree)
-tree.min = which.min(cv.college$dev)
-best = cv.college$size[tree.min]
-plot(cv.college$size, cv.college$dev, type = "b")
-points(cv.college$size[tree.min], cv.college$dev[tree.min], col = "red", pch = 20)
+bag.college <- randomForest(Outstate ~ .,data=college.train, mtry=5, ntrees=500)
+yhat.college <- predict(bag.college, newdata=college.test)
+MSE_rf <- mean((yhat.college - college.test$Outstate)^2)
+MSE_rf
 
 ```
 
-We see that 7 is on the same level of deviance as for size 10, since this is the smallest number for the size we pick 7. Let us now prune the tree to make it size 7.
-```{r, echo=TRUE, eval=TRUE}
-pr.tree = prune.tree(tree.mod1, best = 7)
-#plot(pr.tree)
-#text(pr.tree, pretty = 0)
-
-#find test mse
-yhat.prune = predict(pr.tree, newdata = college.test, n.trees = 500)
-mse.prune <- mean((yhat.prune- college.test$Outstate)^2)
-mse.prune
-
-```
-### done with pruning (maybe remove the pruning part ?)
-
-We observe that the two decision trees above are quite different where different variables act as the most important factors for splitting. We conclude that the regression tree therefore suffer from high variance. We will try the boosting approach in order to train the tree and decrease the variance. The boosting approach grows several trees where each tree is grown using information from previously grown trees. The final predicitor is a weighted sum of the trees. We have three tuning parameters: the number of trees $B$, the shrinkage parameter $\lambda$ and the number of splits in each tree (interaction depth) $d$. These parameters can be decided with cross validation.
-
-```{r, echo=TRUE, eval=TRUE}
-library(gbm)
-set.seed(1)
-
-#fit a boosted tree to the training data - use CV in order to decide the tuning parameters
-boost.cv = gbm(Outstate ~ .,data=college.train, distribution="gaussian", cv.folds = 10)
-boost.cv$n.trees
-
-#check relative importance of variables 
-summary(boost.cv, plotit = FALSE)
-
-```
-
-We notice that $Expend$ has a very high relative influence and therefore seems to be the most important variable in the data.
-We will now look at the test MSE for the method. 
-```{r, echo=TRUE, eval=TRUE}
-yhat.boost = predict(boost.cv, newdata = college.test, n.trees=100)
-mse_boost <- mean((yhat.boost - college.test$Outstate)^2)
-mse_boost
-```
-
-The test MSE for the boosted tree, $MSE_{boosted} = `r mse_boost`$ is smaller than for the Regression tree approach, $MSE_{non-boosted} = `r mse_pure`$. Therefore the boosted tree will probably do a better prediciton of the response. **Write something about pros/cons for the chosen method (boosting) maybe compared to pure regression trees.**
+The test MSE for the random forests is $MSE_{rf} = `r MSE_rf`$.
 
 ## c)
 
-We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Boosted regression trees.
+We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Random forrests of regression trees.
 ```{r, echo=TRUE, eval=TRUE}
 
-MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,mse_pure, mse_boost)
+MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,MSE_rf)
 Method <- c("Forward selection", "Lasso", "Polynomial regression", "Smoothing spline", 
-            "Regression Tree", "Boosting")
+            "Random Forest")
 df <- data.frame(Method, MSE)
 kable(df)
 ```
 
-
-The method performing best in terms of prediction error is the boosted regression tree. But if the aim is to develop a interpretable model we would probably have chosen the regression tree.
+The method performing best in terms of prediction error is the random forest of regression trees. But if the aim is to develop a interpretable model Lasso is the best choice.
 
 
 # Problem 4
@@ -419,16 +357,17 @@ grid.arrange(plot2, plot3, ncol=2, nrow = 1)
 ```
 
 
-TRUE, TRUE, TRUE, FALSE (not sure about the first and last)
+TRUE, TRUE, TRUE, FALSE (not sure about last)
 
 ## b)
 
 We will now fit a support vector classifier with linear boundary and a support vector machine with radial boundary to find good functions that predict the diabetes status of a patient. 
 
 ```{r, echo=TRUE, eval=TRUE}
-
+'''
 library(e1071)
 set.seed(10111)
+
 
 #make response variable a factor
 d.train$diabetes <- as.factor(d.train$diabetes)
@@ -454,9 +393,9 @@ svmfit = svm(d.train$diabetes ~ ., data = dat.train, kernel = "linear", cost = 1
 x = as.matrix(dat.train[, c("X1", "X2")])
 xgrid = make.grid(dat.)
 ygrid = predict(svmfit, xgrid)
-
-
+'''
 ```
+
 
 ## c)
 
@@ -469,6 +408,8 @@ ygrid = predict(svmfit, xgrid)
 
 ```
 
+
+
 # Problem 5
 
 ```{r, echo=TRUE, eval=TRUE}
@@ -476,8 +417,7 @@ id <- "1VfVCQvWt121UN39NXZ4aR9Dmsbj-p9OU"  # google file ID
 GeneData <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", id), header = F)
 colnames(GeneData)[1:20] = paste(rep("H", 20), c(1:20), sep = "")
 colnames(GeneData)[21:40] = paste(rep("D", 20), c(1:20), sep = "")
-rownames(GeneData) = paste(rep("G", 1000), c(1:1000), sep = "")
-
+row.names(GeneData) = paste(rep("G", 1000), c(1:1000), sep = "")
 ```
 
 ## a)
@@ -547,8 +487,8 @@ color<-c(rep(1,200),rep(2,300))
 ```
 
 How to color based on tissues group of patients??? 
-
-```{r, echo=TRUE, eval=TRUE}
+  
+  ```{r, echo=TRUE, eval=TRUE}
 pca_gene=prcomp(GeneData, scale=TRUE)
 plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
 ```
@@ -567,11 +507,11 @@ About 28 percent of the variance is explained by first 5 PC (?)
 ## e)
 Use your results from PCA to find which genes that vary the most accross the two groups.
 ??
-```{r, echo=TRUE, eval=TRUE}
+  ```{r, echo=TRUE, eval=TRUE}
 
 nyt_loading = pca_gene$rotation[, 1:2]
 informative_loadings = rbind(head(nyt_loading[order(nyt_loading[, 1], decreasing = TRUE), 
-    ]), head(nyt_loading[order(nyt_loading[, 2], decreasing = TRUE), ]))
+                                              ]), head(nyt_loading[order(nyt_loading[, 2], decreasing = TRUE), ]))
 
 biplot(x = pca_gene$x[, 1:2], y = informative_loadings, scale = 0)
 ```
@@ -581,7 +521,6 @@ biplot(x = pca_gene$x[, 1:2], y = informative_loadings, scale = 0)
 km.out = kmeans(t(GeneData), 2, nstart = 20)
 km.out$cluster
 ```
-
 
 # References
 
