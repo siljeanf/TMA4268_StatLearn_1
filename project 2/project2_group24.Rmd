@@ -364,52 +364,100 @@ TRUE, TRUE, TRUE, FALSE (not sure about last)
 We will now fit a support vector classifier with linear boundary and a support vector machine with radial boundary to find good functions that predict the diabetes status of a patient. 
 
 ```{r, echo=TRUE, eval=TRUE}
-
 library(e1071)
+
 set.seed(10111)
 
+d.train$diabetes <- as.factor(d.train$diabetes)
+d.test$diabetes <- as.factor(d.test$diabetes)
+
+
 #Fit a support vector classifier (linear boundary) 
-svm.linear = svm(formula = d.train$diabetes ~ ., 
+svm.linear = svm(diabetes~., 
                  data = d.train, 
                  kernel = 'linear')
 
 #fit a support vector machine (radial boundary)
-svm.radial = svm(formula = d.train$diabetes ~ ., 
+svm.radial = svm(diabetes~., 
                  data = d.train, 
                  kernel = 'radial')
 
-#CV to find good cost parameter and gamma
-cv.linear = tune(svm.linear, d.train$diabetes ~ ., data=d.train, kernel = "linear", ranges = list(cost = c(0.001,0.01,0.1,1,5,10,100 )))
+#CV to find the best parameters for each model
+cv.linear <- tune(svm, diabetes ~ ., data=d.train, kernel = "linear", 
+                  ranges = list(cost = c(.001, .01 , .1, 1, 10, 100 ) ) )
 
-tune.out <- tune(svm.radial, d.train$diabetes ~., data = d.train, kernel = "radial",
-                 ranges = list(cost = c(0.1,1,10,100,1000), gamma = c(0.5,1,2,3,4) ))
+cv.radial <- tune(svm, diabetes ~., data = d.train, kernel = "radial",
+                  ranges = list(cost = c(0.1,1,10,100,1000), gamma = c(0.5,1,2,3,4) ))
 
-#CV to find good cost and
+#fit new models with the optimalized parameters from CV
+bestmod.linear = cv.linear$best.model 
+bestmod.radial = cv.radial$best.model 
 
-# Predicting the response with test set  
-y.pred = predict(svm.linear, newdata = d.test)
+# Predict the response for the test set  
+pred.lin = predict(bestmod.linear, newdata = d.test)
+pred.rad = predict(bestmod.radial, newdata = d.test)
+# Confusion tables (0: no diabetes, 1: diabetes) 
+#for SVC (linear)
+table(Prediction = pred.lin, Truth = d.test$diabetes)
 
-# Making the Confusion Matrix 
-cm = table(predict = y.pred, truth = d.test$diabetes)
-
-#misclassification error rates
-
-
+#for SVM (radial)
+table(Prediction = pred.rad, Truth = d.test$diabetes)
 ```
-```
+
+
+From the two confusion tables above we can find the missclassification rates. The left rate belongs to the support vector classifier (linear boundary), and the right rate to the support vector machine (radial boundary). 
+
+$$
+\begin{aligned}
+\frac{35+18}{137+35+18+42} &= 0.2284 & \frac{38+22}{133+38+22+39} &= 0.2586
+\end{aligned}
+$$
+
+
+We know that the missclassification error rate is a good performance measure for classification rules.
+So by looking at these rates the support vector classifier with a linear boundary seems to make the best classification rule for the prescence of diabetes for our data. This is because the number of missclassifications is remarkable lower for this classifier.
 
 
 ## c)
 
+We will now compare the performance of the support vector classifier and support vector machine with a new method: logistic regression. As we have observed above, our data seems to performe well when being classified with a linear decision boundary. Logistic regression models the probability that the response belongs to one of the two classes, producing a linear decision boundary. Therefore this method seems to be a good choice for our data.
 
+
+```{r, echo=TRUE, eval=TRUE}
+
+#fit a logistic regression model using training data
+glm.fit <- glm(diabetes ~ .,data=d.train, family="binomial")
+
+#predict the response using testing data
+glm.probs <- predict(glm.fit, newdata=d.test, type="response")
+
+#sort the probabilities for whether the observations are > or > than 0.5
+glm.pred = rep("0",length(d.test$diabetes)) #create vector of nr. of elements = dataset
+glm.pred[glm.probs>0.5]="1"
+
+#confusion table
+table(Prediction = glm.pred, Truth = d.test$diabetes)
+
+```
+
+The missclassification rate for logistic regression is 
+$$
+\frac{32+19}{136+45+32+19} = 0.2198 
+$$
+We notice that the missclassification rate for logistic regression is even lower than for the two SVMs. This indicates that logistic regression could be a even better choice in order to predict the prescense of diabetes based on our data. 
+
+Both logistic regression and support vector machines solve classification problems. In logistic regression all observations contribute weighted to the decision boundary, while for SVMs, only the support vectors (the points closest to the decision boundary) contribute to the margin. A consequence of this is that LR is more sensitive to outliers than SVM. On the other hand, LR can be easily updated as new data comes in.
+
+For classes that are well separeted SVM tend to perform better than LR, while in more overlapping regimes we usually prefer LR. We also know that logistic regression produces probabilistic values, while SVM produces binary values. This can be an advantage if we want an estimation rather than just the resulting class for each observation.
 
 
 ## d)
 
-```{r, echo=TRUE, eval=TRUE}
+FALSE, FALSE, ??, TRUE? (really not sure about any of these answers!)
 
-```
+## e)
 
+We will know show the connection between hinge loss ans logistic loss for 
 
 
 # Problem 5
@@ -472,9 +520,9 @@ cutree(hc.corr.single, 2)
 We know that the first 20 tissues come from healthy patients and the last 20 from diseased ones. Therefore it seems like all linkage and distance measures perform perfectly.
 
 
-ASK PEOPLE??? 
-## c)
+**ASK PEOPLE??? **
 
+## c)
 
 
 The elements of the vector $\phi$ are called loadings and define a direction in the feature space along which the data varies the most. The data is a $n\times p$ matrix X.

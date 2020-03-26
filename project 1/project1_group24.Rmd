@@ -316,7 +316,7 @@ colnames(t)=c("Predicted Loss","Predicted Win")
 rownames(t)=c("Actual Loss","Actual Win")
 t
 ```
-The confusion table shows the performance of the classification rule, logisitc regression. The sum of the diagonal is the total number of correct classifications. The sum of all elements off the diagonal is the total number of misclassifications. We notice that there are some misclassifications for both classes. We will now calculate the sensitivity and specificity in order to understand this table better.
+The confusion table shows the performance of the classification rule, logistic regression. The sum of the diagonal is the total number of correct classifications. The sum of all elements off the diagonal is the total number of misclassifications. We notice that there are some misclassifications for both classes. We will now calculate the sensitivity and specificity in order to understand this table better.
 
 $$Sensitivity=\frac{True \ Positive }{Actual \ Positive}$$
 $$Specificity=\frac{True \ Negative }{Actual \ Negative}$$
