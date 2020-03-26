@@ -210,7 +210,7 @@ plot(ds6)
 From each of the plots above we can conclude that at least $Terminal$ and $Expend$ seems to have a non-linear relationship with $Outstate$. These two variables therefore might benefit from a non-linear transformation. The others variables, $Room.Board$, $perc.alumni$ and $Grad.Rate$ seem to have a linear realtionship with the response variable. The binary variable $Private$ is presented through a boxplot. Generally the data seem to cathegorize quite well into these two classes of private and public universites where the trend is a higher out-of-state tuition for private universites, except for some outliers for public universities where the outcome is very high and therefore can seem to belong to a private universities. Anyway, we cannot transform a binary variable. 
 
 ## d)
-
+### (i)
 We will now fit several polynomial regression models for $Outstate$ with $Terminal$ as the only covariate. Each polynomial will have a degree from $d=1,..10$. 
 
 ```{r, echo=TRUE, eval=TRUE}
@@ -225,16 +225,19 @@ deg = 1:10
 
 #now iterate over each degree d
 dat = c()  #make a empty variable to store predicted values for each degree
-MSE_poly = c(rep(0,10))  #make a empty variable to store MSE for each degree
+MSE_train_poly = c(rep(0,10))  #make a empty variable to store MSE for each degree
+MSE_test_poly = c(rep(0,10))
+
 for (d in deg) {
     # fit model with this degree
-    mod = lm(Outstate ~ poly(Terminal, d), ds[train.ind, ])
+    mod = lm(Outstate ~ poly(Terminal, d), data= college.train)
     
     #dataframe for Terminal and Outstate showing result for each degree over all samples
-    dat = rbind(dat, data.frame(Terminal = ds[train.ind, 1], Outstate = mod$fit, 
+    dat = rbind(dat, data.frame(Terminal = college.train$Terminal, Outstate = mod$fit, 
                                 degree = as.factor(rep(d,length(mod$fit)))))
     # training MSE
-    MSE_poly[d] = mean((predict(mod, ds[-train.ind, ]) - ds[-train.ind, 2])^2)
+    MSE_train_poly[d] = mean((predict(mod, newdata=college.train) - college.train$Outstate)^2)
+    MSE_test_poly[d] = mean((predict(mod, newdata= college.test) - college.test$Outstate)^2)
 }
 
 # plot fitted values for different degrees
@@ -242,16 +245,18 @@ ggplot(data = ds[train.ind, ], aes(x = Terminal, y = Outstate)) +
     geom_point(color = "darkgrey") + labs(title = "Polynomial regression")+
     geom_line(data = dat, aes(x = Terminal, y = Outstate, color = degree))
 
-
 ```
 
+### (ii)
 We will now choice a suitable smoothing spline model to predict $Outstate$ as a function of $Expend$ and plot the fitted function.
 
 ```{r, echo=TRUE, eval=TRUE}
 library(splines)
 
 #plot training set for Expend as only covariate
-plot(college.train$Expend, college.train$Outstate, col = "darkgrey", main="Smoothing spline", xlab="Expend", ylab="Outstate")
+plot(college.train$Expend, college.train$Outstate, col = "darkgrey", 
+     main="Smoothing spline", xlab="Expend", ylab="Outstate")
+
 #perform CV in order to find optimal number of df
 fit = smooth.spline(college.train$Expend, college.train$Outstate, cv=TRUE)
 df <- fit$df #choose df from CV
@@ -263,24 +268,30 @@ legend("topright", legend=c("4.6 DF"), col="red", lty=1, lwd=2, cex=.8)
 
 #training MSE
 pred = predict(fit, newdata=college.train)
-MSE_spline = mean( (college.train$Outstate - pred$y)^2 )
+MSE_spline_train = mean( (college.train$Outstate - pred$y)^2 )
+
+#test MSE
+pred = predict(fit, newdata=college.test)
+MSE_spline_test = mean( (college.test$Outstate - pred$y)^2 )
 ```
 
-In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = `r df`$, which gives  the smoothing parameter $\lambda = `r l`$
+In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = `r df`$, which gives the smoothing parameter $\lambda = `r l`$
 
-We will now calculate the training MSE for the polynomial regresson models and the smoothing spline model.
-For the polynomial regression models we find it easiest to look at the MSE by presenting a plot with MSE for each degree.
+### (iii)
+We will now report the training MSE for the polynomial regresson models and the smoothing spline model.
+For the polynomial regression models we present the MSE for each degree of polynomial $d=1..,10$. 
 
 ```{r, echo=TRUE, eval=TRUE}
 #MSE for polynomial regression models (1-10) 
-plot(1:10,MSE_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
-min(MSE_poly)
+plot(1:10,MSE_train_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
+MSE_poly_train_best = MSE_spline_train[9]
 
-#MSE for smoothing spline
-MSE_spline
+#training MSE for smoothing spline
+MSE_spline_test
 
 ```
-The training MSE for the two methods are (Read about this!)
+For the polynomial regression we did expect the MSE to decrease for larger degree of polynomial untill a certain point. Here it seems that this point is located at degree $d=9$. 
+
 
 (discuss is it is as expected!)
 
@@ -313,10 +324,11 @@ The test MSE for the random forests is $MSE_{rf} = `r MSE_rf`$.
 
 ## c)
 
-We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Random forrests of regression trees.
+We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Random forrests of regression trees. For the polynomial regression we just show the polynomial degree with the minimal test MSE.
+
 ```{r, echo=TRUE, eval=TRUE}
 
-MSE <- c(mse_fwd,mse_lasso,min(MSE_poly),MSE_spline,MSE_rf)
+MSE <- c(mse_fwd,mse_lasso,min(MSE_test_poly),MSE_spline_test,MSE_rf)
 Method <- c("Forward selection", "Lasso", "Polynomial regression", "Smoothing spline", 
             "Random Forest")
 df <- data.frame(Method, MSE)
@@ -350,14 +362,16 @@ head(d.train) #overview of data
 
 #plots
 ggpairs(d.train) + theme_minimal() #look at correlation between variables
-plot2 <- ggplot(d.train, aes(x=npreg, y=diabetes))+geom_point()
+#plot2 <- ggplot(d.train, aes(x=npreg, y=diabetes))+geom_point()
+plot2 <- ggplot(d.train, aes(npreg)) + geom_histogram(binwidth = 2) + labs(title = "Histogram") + 
+    theme_minimal()
 plot3 <- ggplot(d.train,aes(x=glu,y=bmi,color=diabetes))+geom_point()
 grid.arrange(plot2, plot3, ncol=2, nrow = 1)
 
 ```
 
 
-TRUE, TRUE, TRUE, FALSE (not sure about last)
+TRUE, TRUE, TRUE, TRUE
 
 ## b)
 
@@ -415,13 +429,12 @@ $$
 
 
 We know that the missclassification error rate is a good performance measure for classification rules.
-So by looking at these rates the support vector classifier with a linear boundary seems to make the best classification rule for the prescence of diabetes for our data. This is because the number of missclassifications is remarkable lower for this classifier.
+So by looking at these rates the support vector classifier with a linear boundary seems to make the best classification rule for the prescence of diabetes for our data. This is because the number of missclassifications is remarkable lower for this classifier. We also observe that the number of false positive and false negative findings are both lower for this chosen model compared to the support vector machine with radial boundary.
 
 
 ## c)
 
-We will now compare the performance of the support vector classifier and support vector machine with a new method: logistic regression. As we have observed above, our data seems to performe well when being classified with a linear decision boundary. Logistic regression models the probability that the response belongs to one of the two classes, producing a linear decision boundary. Therefore this method seems to be a good choice for our data.
-
+We will now compare the performance of the support vector classifier and support vector machine with a new method: logistic regression. As we have observed above, our data seems to performe well when being classified with a linear decision boundary. Logistic regression models the probability that the response belongs to one of the two classes, producing a linear decision boundary. Therefore this method seems to be a good choice for our data. 
 
 ```{r, echo=TRUE, eval=TRUE}
 
@@ -431,7 +444,7 @@ glm.fit <- glm(diabetes ~ .,data=d.train, family="binomial")
 #predict the response using testing data
 glm.probs <- predict(glm.fit, newdata=d.test, type="response")
 
-#sort the probabilities for whether the observations are > or > than 0.5
+#sort the probabilities for whether the observations are < or > than p = 0.5
 glm.pred = rep("0",length(d.test$diabetes)) #create vector of nr. of elements = dataset
 glm.pred[glm.probs>0.5]="1"
 
@@ -446,14 +459,14 @@ $$
 $$
 We notice that the missclassification rate for logistic regression is even lower than for the two SVMs. This indicates that logistic regression could be a even better choice in order to predict the prescense of diabetes based on our data. 
 
-Both logistic regression and support vector machines solve classification problems. In logistic regression all observations contribute weighted to the decision boundary, while for SVMs, only the support vectors (the points closest to the decision boundary) contribute to the margin. A consequence of this is that LR is more sensitive to outliers than SVM. On the other hand, LR can be easily updated as new data comes in.
+Both logistic regression and support vector machines solve classification problems. In logistic regression all observations contribute to the decision boundary, while for SVMs, only the support vectors (the points closest to the decision boundary) contribute to the margin. A consequence of this is that LR is more sensitive to outliers than SVM. 
 
 For classes that are well separeted SVM tend to perform better than LR, while in more overlapping regimes we usually prefer LR. We also know that logistic regression produces probabilistic values, while SVM produces binary values. This can be an advantage if we want an estimation rather than just the resulting class for each observation.
 
 
 ## d)
 
-FALSE, FALSE, ??, TRUE? (really not sure about any of these answers!)
+FALSE, FALSE, TRUE, TRUE 
 
 ## e)
 
