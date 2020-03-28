@@ -266,6 +266,7 @@ l <- fit$lambda
 lines(fit, col="red", lwd=2)
 legend("topright", legend=c("4.6 DF"), col="red", lty=1, lwd=2, cex=.8)
 
+
 #training MSE
 pred = predict(fit, newdata=college.train)
 MSE_spline_train = mean( (college.train$Outstate - pred$y)^2 )
@@ -283,17 +284,16 @@ For the polynomial regression models we present the MSE for each degree of polyn
 
 ```{r, echo=TRUE, eval=TRUE}
 #MSE for polynomial regression models (1-10) 
-plot(1:10,MSE_train_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
-MSE_poly_train_best = MSE_spline_train[9]
-
+#plot(1:10,MSE_train_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
+MSE_train_poly
+MSE_poly_train_best = MSE_train_poly[9]
 #training MSE for smoothing spline
-MSE_spline_test
+MSE_spline_train
 
 ```
-For the polynomial regression we did expect the MSE to decrease for larger degree of polynomial untill a certain point. Here it seems that this point is located at degree $d=9$. 
 
-
-(discuss is it is as expected!)
+If we look back at the plots from c) we can see that when we plotted $Outstate$  against $Expend$ we had way less noise than with $Terminal$. Therefore we expected a smaller MSE for the model that uses $Expend$. Also, from the plot in d) (i) of the polynomial regression,
+it seems like all degrees of polynomials were somehow similar, at least we cannot see a huge difference from the plot. So even though we did expect the MSE to decrease with higher degrees, we thought it would not decrease too much, which seems to be the case. Finally the plot from d) (ii) indicated a pretty good fit.
 
 # Problem 3
 
@@ -470,8 +470,23 @@ FALSE, FALSE, TRUE, TRUE
 
 ## e)
 
-We will know show the connection between hinge loss ans logistic loss for 
+We will now show the connection between hinge loss and logistic loss for the $y=-1,1$ encoding. Let's find the loss function of the logistic regression model in this case. We can see that with this encoding we can write that $P(Y_i=y_i|\boldsymbol{x_i})=g(y_i\beta^T\boldsymbol{x_i})$ where $g(\boldsymbol{x_i})$ is the logistic function. We will use the notation $f(\boldsymbol{x_i})=\beta^T\boldsymbol{x_i}$. We verify that this corresponds to the model: 
+$$
+\begin{aligned}
+P(Y_i=1|\boldsymbol{x_i})&=\frac{1}{1+e^{-f(\boldsymbol{x_i})}} &&\\
+P(Y_i=-1|\boldsymbol{x_i})=\frac{1}{1+e^{f(\boldsymbol{x_i})}}=1-\frac{1}{1+e^{-f(\boldsymbol{x_i})}}&=1-P(Y_i=1|\boldsymbol{x_i}) &&\\
+\end{aligned}
+$$
+So indeed that is a correct way to write the model. We will now calculate the contribution off one observation to the deviance. Remember that the deviance is $-2Log(Likelihood)$, but we will ignore the 2 here.
 
+
+$$
+\begin{aligned}
+-log(g(y_i\beta^T\boldsymbol{x_i}))&= &&\\
+-log(\frac{1}{1+e^{-y_if(\boldsymbol{x_i})}})=log(1+e(-y_if(\boldsymbol{x_i})))&&\\
+\end{aligned}
+$$
+We found the desired result.
 
 # Problem 5
 
@@ -565,18 +580,19 @@ cumsum(pve)[5]
 About 21 percent of the variance is explained by first 5 PCs.
 
 ## e)
-Use your results from PCA to find which genes that vary the most accross the two groups.
-??
+We now will use the results from PCA to find which genes vary the most accross the two groups. For this, we refer to the score vectors obtained by PCA. The genes that vaary the most accross the two groups are the ones that have the highest scores. We will display the 5 genes that vary most for the first principal components and the same for the second principal components.
+<!-- Is this really true?? Is it ok to pick 5 for each? Which number should we choose? More for 1st or 2nd components? -->
 
 ```{r, echo=TRUE, eval=TRUE}
-
-nyt_loading = pca_gene$rotation[, 1:2]
-informative_loadings = rbind(head(nyt_loading[order(nyt_loading[, 1], decreasing = TRUE), 
-                                              ]), head(nyt_loading[order(nyt_loading[, 2], decreasing = TRUE), ]))
-
-biplot(x = pca_gene$x[, 1:2], y = informative_loadings, scale = 0)
+gene_loading = pca_gene$rotation[, 1:2]
+informative_loadings = rbind(head(gene_loading[order(gene_loading[, 1], decreasing = TRUE), 
+                                              ]), head(gene_loading[order(gene_loading[, 2], decreasing = TRUE), ]))
+informative_loadings
 ```
-## f)
+
+
+# f)
+
 
 ```{r, echo=TRUE, eval=TRUE}
 km.out = kmeans(GeneData,2, nstart = 20)
@@ -584,10 +600,11 @@ km.out$cluster
 ```
 
 ```{r, echo=TRUE, eval=TRUE}
-
+plot(pca_gene$x[,1:2], col=km.out$cluster,pch=19,xlab="Z1",ylab="Z2")
 ```
 
 ```{r, echo=TRUE, eval=TRUE}
+
 
 ```
 # References
