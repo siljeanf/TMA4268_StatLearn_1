@@ -174,16 +174,26 @@ FALSE, FALSE, TRUE, FALSE
 
 ## b) 
 
-The basis functions for a cubic spline with knots at each quartile, of variable $X$ are,
+The basis functions for a cubic spline with knots at each quartile $q_1,q_2, q_3$, of variable $X$ are,
 
 $$
 \begin{aligned}
-&b_0(X) = 1 && b_4(X) = (X-q_1)_{+}^3 \\
-&b_1(X) = x && b_5(x) = (X-q_2)_{+}^3 \\
-&b_2(X) = x^2 && b_6(X) = (X-q_3)_{+}^3 \\
-&b_3(X)=x^3
+&b_0(X) = 1 && b_4(X, q_1) = (X-q_1)_{+}^3 \\
+&b_1(X) = X && b_5(X, q_2) = (X-q_2)_{+}^3 \\
+&b_2(X) = X^2 && b_6(X, q_3) = (X-q_3)_{+}^3 \\
+&b_3(X)= X^3
 \end{aligned}
 $$
+
+where the power basis functions are defined as below:
+$$
+b(X, q_j) = (x_i-q_j)_{+}^3
+  \begin{cases}
+    (X-q_j)^3       & \quad \text{if } X > q_j\\
+    0  & \quad \text{otherwise}
+  \end{cases}
+$$
+This amounts to estimating $7$ regression coefficients $\beta_k$ for $k=0,..,7$ to the intercept and predictors.
 
 ## c)
 
@@ -248,7 +258,7 @@ ggplot(data = ds[train.ind, ], aes(x = Terminal, y = Outstate)) +
 ```
 
 ### (ii)
-We will now choice a suitable smoothing spline model to predict $Outstate$ as a function of $Expend$ and plot the fitted function.
+We will now choose a suitable smoothing spline model to predict $Outstate$ as a function of $Expend$ and plot the fitted function.
 
 ```{r, echo=TRUE, eval=TRUE}
 library(splines)
@@ -276,24 +286,27 @@ pred = predict(fit, newdata=college.test)
 MSE_spline_test = mean( (college.test$Outstate - pred$y)^2 )
 ```
 
-In order to choose a suitable model we did cross validation. The optimal number of degrees of freedom is $df = `r df`$, which gives the smoothing parameter $\lambda = `r l`$
+In order to choose the optimal number of degrees of freedom , which is$df = `r df`$, we did cross validation.
 
 ### (iii)
 We will now report the training MSE for the polynomial regresson models and the smoothing spline model.
-For the polynomial regression models we present the MSE for each degree of polynomial $d=1..,10$. 
-
+For the polynomial regression models we present the MSE for each degree of polynomial $d=1..,10$,
 ```{r, echo=TRUE, eval=TRUE}
 #MSE for polynomial regression models (1-10) 
 #plot(1:10,MSE_train_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
-MSE_train_poly
-MSE_poly_train_best = MSE_train_poly[9]
-#training MSE for smoothing spline
-MSE_spline_train
+Degree <- seq(1,10,by=1)
+MSE = MSE_train_poly
+df <- data.frame(Degree, MSE)
+kable(df)
 
 ```
 
-If we look back at the plots from c) we can see that when we plotted $Outstate$  against $Expend$ we had way less noise than with $Terminal$. Therefore we expected a smaller MSE for the model that uses $Expend$. Also, from the plot in d) (i) of the polynomial regression,
-it seems like all degrees of polynomials were somehow similar, at least we cannot see a huge difference from the plot. So even though we did expect the MSE to decrease with higher degrees, we thought it would not decrease too much, which seems to be the case. Finally the plot from d) (ii) indicated a pretty good fit.
+For the smoothing spline the training MSE is, 
+$$ MSE = `r MSE_spline_train`$$.
+
+If we look back at the plots from c) we can see that when we plotted $Outstate$ against $Expend$ we had way less noise than with $Terminal$. Therefore we expected a smaller MSE for the model that uses $Expend$, that is the smoothing spline. We can confirm this as the measured training MSE for the smoothing spline model is a bit smaller than each of the ten polynomial regression models. The plot from d) (ii) confirms this as it indicated a pretty good fit.
+
+From the plot in d) (i) of the polynomial regression, it seems like all degrees of polynomials were somehow similar, at least we cannot see a huge difference from the plot. So even though we normally expect the MSE to decrease with higher degrees, this remark gives a reason to expect that the MSE not will decrease too much, which also seems to be the case when looking at the table that reports the training MSE for each degree of polynomial. 
 
 # Problem 3
 
@@ -302,10 +315,7 @@ FALSE, FALSE, TRUE, FALSE
 
 ## b)
 
-To predict $Outstate$ we will choose 
-
-PROS and CONS!
-One known disadvantage of regression trees are that they usually have a high variance, and are not very robust. The idea of bagging is to grow many trees to fix those two problems. Bagging is a special case of another approach called random forrests. In random forrests we allow only certain number of predictors $m$ to be selected at each node, which deacreases the correlation between each tree. 
+In order to predict $Outstate$ we will choose the tree-based method: random forests. We know that regression tress usually suffer from high variance and non-robustness. By aggregating many decision trees and averaging the resulting prediciton, random forests solves these two problems. Another advantage with random forests is the fact that the method injets more randomness than for example bagging in order to avoid strong predictors dominating the decision trees. This is done by allowing only certain number of predictors $m$ to be selected at each node, which deacreases the correlation between each tree. Even though random forests is a flexible and accurate method, one big disadvantage is its high complexity as the method creates a lot of trees and therefore requires more computational resources than one simple regression tree.
 
 The tuning parameter in random forrests is the number of predictors you are able to choose between at each split. It is recommended to use $m=p/3$ variables when building a regression trees. Recall that we have $17$ parameters in our dataset. We will therefore pick $m=5$.
 
@@ -313,18 +323,20 @@ The tuning parameter in random forrests is the number of predictors you are able
 library(randomForest)
 
 set.seed(1)
-bag.college <- randomForest(Outstate ~ .,data=college.train, mtry=5, ntrees=500)
-yhat.college <- predict(bag.college, newdata=college.test)
-MSE_rf <- mean((yhat.college - college.test$Outstate)^2)
-MSE_rf
 
+# fit a model using random forests with a sufficiently large number of trees
+rf.college <- randomForest(Outstate ~ .,data=college.train, mtry=5, ntrees=500)
+#predict the response using test data
+yhat.college <- predict(rf.college, newdata=college.test)
+#test MSE
+MSE_rf <- mean((yhat.college - college.test$Outstate)^2)
 ```
 
 The test MSE for the random forests is $MSE_{rf} = `r MSE_rf`$.
 
 ## c)
 
-We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method Random forrests of regression trees. For the polynomial regression we just show the polynomial degree with the minimal test MSE.
+We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method random forrests of regression trees. For the polynomial regression we just show the polynomial degree with the minimal test MSE.
 
 ```{r, echo=TRUE, eval=TRUE}
 
@@ -491,6 +503,7 @@ We found the desired result.
 # Problem 5
 
 ```{r, echo=TRUE, eval=TRUE}
+
 id <- "1VfVCQvWt121UN39NXZ4aR9Dmsbj-p9OU"  # google file ID
 GeneData <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", id), header = F)
 colnames(GeneData)[1:20] = paste(rep("H", 20), c(1:20), sep = "")
@@ -528,8 +541,8 @@ plot(hc.corr.complete,main="Complete Linkage, correlation-based distance", xlab=
 plot(hc.corr.average, main="Average Linkage, correlation-based distance", xlab="", sub="", cex=.9)
 plot(hc.corr.single, main="Single Linkage, correlation-based distance", xlab="", sub="", cex=.9)
 ```
-
 The dendograms seem to recognize that there are two different groups.
+
 ## b)
 
 We now use the dendograms to cluster the tissues into two groups.
@@ -549,10 +562,9 @@ We know that the first 20 tissues come from healthy patients and the last 20 fro
 
 
 **ASK PEOPLE??? **
-
+  
 ## c)
-
-
+  
 The elements of the vector $\phi$ are called loadings and define a direction in the feature space along which the data varies the most. The data is a $n\times p$ matrix X.
 
 
@@ -567,7 +579,7 @@ color<-c(rep(1,20),rep(2,20))
 
 How to color based on tissues group of patients??? 
   
-```{r, echo=TRUE, eval=TRUE}
+  ```{r, echo=TRUE, eval=TRUE}
 pca_gene=prcomp(GeneData, scale=TRUE)
 plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
 ```
@@ -580,19 +592,18 @@ cumsum(pve)[5]
 About 21 percent of the variance is explained by first 5 PCs.
 
 ## e)
-We now will use the results from PCA to find which genes vary the most accross the two groups. For this, we refer to the score vectors obtained by PCA. The genes that vaary the most accross the two groups are the ones that have the highest scores. We will display the 5 genes that vary most for the first principal components and the same for the second principal components.
+We now will use the results from PCA to find which genes vary the most accross the two groups. For this, we refer to the score vectors obtained by PCA. The genes that vary the most accross the two groups are the ones that have the highest scores. We will display the 5 genes that vary most for the first principal components and the same for the second principal components.
 <!-- Is this really true?? Is it ok to pick 5 for each? Which number should we choose? More for 1st or 2nd components? -->
-
+  
 ```{r, echo=TRUE, eval=TRUE}
 gene_loading = pca_gene$rotation[, 1:2]
 informative_loadings = rbind(head(gene_loading[order(gene_loading[, 1], decreasing = TRUE), 
-                                              ]), head(gene_loading[order(gene_loading[, 2], decreasing = TRUE), ]))
+                                               ]), head(gene_loading[order(gene_loading[, 2], decreasing = TRUE), ]))
 informative_loadings
 ```
 
 
 # f)
-
 
 ```{r, echo=TRUE, eval=TRUE}
 km.out = kmeans(GeneData,2, nstart = 20)
@@ -607,9 +618,11 @@ plot(pca_gene$x[,1:2], col=km.out$cluster,pch=19,xlab="Z1",ylab="Z2")
 
 
 ```
+
 # References
 
 James, G., D. Witten, T. Hastie, and R. Tibshirani. 2013. An Introduction to Statistical Learning with Applications in R. New York: Springer.
+
 
 
 
