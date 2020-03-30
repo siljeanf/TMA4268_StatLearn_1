@@ -175,10 +175,9 @@ The basis functions for a cubic spline with knots at each quartile $q_1,q_2, q_3
 
 $$
 \begin{aligned}
-&b_0(X) = 1 && b_4(X, q_1) = (X-q_1)_{+}^3 \\
-&b_1(X) = X && b_5(X, q_2) = (X-q_2)_{+}^3 \\
-&b_2(X) = X^2 && b_6(X, q_3) = (X-q_3)_{+}^3 \\
-&b_3(X)= X^3
+&b_1(X) = X && b_4(X, q_1) = (X-q_1)_{+}^3 \\
+&b_2(X) = X^2 && b_5(X, q_2) = (X-q_2)_{+}^3 \\
+&b_3(X)= X^3 && b_6(X, q_3) = (X-q_3)_{+}^3 \\
 \end{aligned}
 $$
 
@@ -259,7 +258,7 @@ We will now choose a suitable smoothing spline model to predict $Outstate$ as a 
 
 ```{r, echo=TRUE, eval=TRUE}
 library(splines)
-
+set.seed(1)
 #perform CV in order to find optimal number of df
 fit = smooth.spline(college.train$Expend, college.train$Outstate, cv=TRUE)
 
@@ -282,6 +281,7 @@ MSE_spline_test = mean( (college.test$Outstate - pred$y)^2 )
 ```
 
 In order to choose the optimal number of degrees of freedom , which is $df = `r fit$df`$, we did cross validation.
+
 
 ### (iii)
 We will now report the training MSE for the polynomial regresson models and the smoothing spline model.
@@ -568,9 +568,12 @@ The first principal component scores are then the column eigenvector correspondi
 color<-c(rep(1,20),rep(2,20))
 ```
   
-  ```{r, echo=TRUE, eval=TRUE}
+```{r, echo=TRUE, eval=TRUE}
 pca_gene=prcomp(GeneData, scale=TRUE)
-plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2")
+plot(pca_gene$x[,1:2], col=c("red","blue")[color],pch=19,xlab="Z1",ylab="Z2",main="Plot of tissue samples using PCA")
+legend("bottom", legend=c("Healthy", "Diseased"),
+       col=c("red", "blue"), cex=0.8,pch=16)
+
 ```
 
 Now we calculate the proportion of variance explained (PVE) by the 5 first components.
@@ -578,35 +581,30 @@ Now we calculate the proportion of variance explained (PVE) by the 5 first compo
 pve=100*pca_gene$sdev^2/sum(pca_gene$sdev^2)
 cumsum(pve)[5]
 ```
-About 21 percent of the variance is explained by first 5 PCs.
+About 21 percent of the variance is explained by first 5 PCs, which is very low.
 
 ## e)
-We now will use the results from PCA to find which genes vary the most accross the two groups. For this, we refer to the score vectors obtained by PCA. The genes that vary the most accross the two groups are the ones that have the highest scores. We will display the 5 genes that vary most for the first principal components and the same for the second principal components.
-<!-- Is this really true?? Is it ok to pick 5 for each? Which number should we choose? More for 1st or 2nd components? -->
+We now will use the results from PCA to find which genes vary the most accross the two groups. When looking at the plot of the two first principal components above, we see that the two groups have distinct values along the first principal components. Therefore we will define the genes that vary the most accross the two groups as the ones who have the highest value on the first principal component score vector. We show the 10 best ones below.
   
 ```{r, echo=TRUE, eval=TRUE}
-gene_loading = pca_gene$rotation[, 1:2]
-informative_loadings = rbind(head(gene_loading[order(gene_loading[, 1], decreasing = TRUE), 
-                                               ]), head(gene_loading[order(gene_loading[, 2], decreasing = TRUE), ]))
-informative_loadings
+gene_loading = pca_gene$rotation[, 1]
+sort(abs(gene_loading), decreasing = TRUE)[1:10]
 ```
 
 
 # f)
-
+We now use K-means to separate the tissue samples into two groups.
 ```{r, echo=TRUE, eval=TRUE}
 km.out = kmeans(GeneData,2, nstart = 20)
 km.out$cluster
 ```
-
+This method separates the data perfectly and therefore yields an error rate of zero. Below is a plot of the data using PCA, where the observations are colored according to the results of K-means.
 ```{r, echo=TRUE, eval=TRUE}
-plot(pca_gene$x[,1:2], col=km.out$cluster,pch=19,xlab="Z1",ylab="Z2")
+plot(pca_gene$x[,1:2], col=km.out$cluster,pch=19,xlab="Z1",ylab="Z2",main="Plot of tissue samples colored by K-means")
+legend("bottom", legend=c("Healthy", "Diseased"),
+       col=c("black", "red"), cex=0.8,pch=16)
 ```
 
-```{r, echo=TRUE, eval=TRUE}
-
-
-```
 
 # References
 
