@@ -20,7 +20,8 @@ knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.wh
 # Problem 1
 
 ## a)
-Let's find the ridge regression estimator. Remember that $\hat{\beta}_{Ridge}$ minimizes $RSS+\lambda\sum_{j=1}^p\beta_j^2$. Let's rewrite this in matrix notation.
+Let's find the ridge regression estimator. Remember that $\hat{\beta}_{Ridge}$ minimizes $RSS+\lambda\sum_{j=1}^p\beta_j^2$. Here we assume that all covariates and the response have been mean-centered, so that we do not include $\beta_0$.
+Let's rewrite this in matrix notation.
 
 $$
 \begin{aligned}
@@ -263,37 +264,34 @@ We will now choose a suitable smoothing spline model to predict $Outstate$ as a 
 ```{r, echo=TRUE, eval=TRUE}
 library(splines)
 
-#plot training set for Expend as only covariate
-plot(college.train$Expend, college.train$Outstate, col = "darkgrey", 
-     main="Smoothing spline", xlab="Expend", ylab="Outstate")
-
 #perform CV in order to find optimal number of df
 fit = smooth.spline(college.train$Expend, college.train$Outstate, cv=TRUE)
-df <- fit$df #choose df from CV
-l <- fit$lambda
+
+#plot training set for Expend as only covariate
+plot(college.train$Expend, college.train$Outstate, col = "darkgrey", 
+    main=paste("Smoothing spline, df = ", round(fit$df,3)), xlab="Expend", ylab="Outstate")
 
 #add fitted function from smoothing spline
 lines(fit, col="red", lwd=2)
-legend("topright", legend=c("4.6 DF"), col="red", lty=1, lwd=2, cex=.8)
 
 
 #training MSE
-pred = predict(fit, newdata=college.train)
-MSE_spline_train = mean( (college.train$Outstate - pred$y)^2 )
+pred =  predict( fit, college.train$Expend)
+MSE_spline_train <- mean((pred$y - college.train$Outstate )^2)
 
 #test MSE
-pred = predict(fit, newdata=college.test)
+pred =  predict(fit, college.test$Expend)
 MSE_spline_test = mean( (college.test$Outstate - pred$y)^2 )
+
 ```
 
-In order to choose the optimal number of degrees of freedom , which is$df = `r df`$, we did cross validation.
+In order to choose the optimal number of degrees of freedom , which is $df = `r fit$df`$, we did cross validation.
 
 ### (iii)
 We will now report the training MSE for the polynomial regresson models and the smoothing spline model.
 For the polynomial regression models we present the MSE for each degree of polynomial $d=1..,10$,
 ```{r, echo=TRUE, eval=TRUE}
 #MSE for polynomial regression models (1-10) 
-#plot(1:10,MSE_train_poly, type = "o", pch = 16, xlab = "degree", main = "Test error")
 Degree <- seq(1,10,by=1)
 MSE = MSE_train_poly
 df <- data.frame(Degree, MSE)
@@ -304,7 +302,7 @@ kable(df)
 For the smoothing spline the training MSE is, 
 $$ MSE = `r MSE_spline_train`$$.
 
-If we look back at the plots from c) we can see that when we plotted $Outstate$ against $Expend$ we had way less noise than with $Terminal$. Therefore we expected a smaller MSE for the model that uses $Expend$, that is the smoothing spline. We can confirm this as the measured training MSE for the smoothing spline model is a bit smaller than each of the ten polynomial regression models. The plot from d) (ii) confirms this as it indicated a pretty good fit.
+If we look back at the plots from c) we can see that when we plotted $Outstate$ against $Expend$ we had way less noise than with $Terminal$. Therefore we expected a smaller MSE for the model that uses $Expend$, that is the smoothing spline. We can confirm this as the measured training MSE for the smoothing spline model is smaller than each of the ten polynomial regression models. The plot from d) (ii) confirms this as it indicated a pretty good fit.
 
 From the plot in d) (i) of the polynomial regression, it seems like all degrees of polynomials were somehow similar, at least we cannot see a huge difference from the plot. So even though we normally expect the MSE to decrease with higher degrees, this remark gives a reason to expect that the MSE not will decrease too much, which also seems to be the case when looking at the table that reports the training MSE for each degree of polynomial. 
 
@@ -559,9 +557,6 @@ cutree(hc.corr.single, 2)
 ```
 
 We know that the first 20 tissues come from healthy patients and the last 20 from diseased ones. Therefore it seems like all linkage and distance measures perform perfectly.
-
-
-**ASK PEOPLE??? **
   
 ## c)
   
@@ -576,8 +571,6 @@ The first principal component scores are then the column eigenvector correspondi
 ```{r, echo=TRUE, eval=TRUE}
 color<-c(rep(1,20),rep(2,20))
 ```
-
-How to color based on tissues group of patients??? 
   
   ```{r, echo=TRUE, eval=TRUE}
 pca_gene=prcomp(GeneData, scale=TRUE)
