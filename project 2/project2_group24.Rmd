@@ -470,17 +470,16 @@ FALSE, FALSE, TRUE, TRUE
 We will now show the connection between hinge loss and logistic loss for the $y=-1,1$ encoding. Let's find the loss function of the logistic regression model in this case. We can see that with this encoding we can write that $P(Y_i=y_i|\boldsymbol{x_i})=g(y_i\beta^T\boldsymbol{x_i})$ where $g(\boldsymbol{x_i})$ is the logistic function. We will use the notation $f(\boldsymbol{x_i})=\beta^T\boldsymbol{x_i}$. We verify that this corresponds to the model: 
 $$
 \begin{aligned}
-P(Y_i=1|\boldsymbol{x_i})&=\frac{1}{1+e^{-f(\boldsymbol{x_i})}} &&\\
-P(Y_i=-1|\boldsymbol{x_i})=\frac{1}{1+e^{f(\boldsymbol{x_i})}}=1-\frac{1}{1+e^{-f(\boldsymbol{x_i})}}&=1-P(Y_i=1|\boldsymbol{x_i}) &&\\
+P(Y_i=1|\boldsymbol{x_i})&=\frac{1}{1+e^{-f(\boldsymbol{x_i})}}=g(y_i\beta^T\boldsymbol{x_i}) &&\\
+P(Y_i=-1|\boldsymbol{x_i})&=1-P(Y_i=1|\boldsymbol{x_i})=1-\frac{1}{1+e^{-f(\boldsymbol{x_i})}} =\frac{1}{1+e^{f(\boldsymbol{x_i})}}=g(y_i\beta^T\boldsymbol{x_i})&&\\
 \end{aligned}
 $$
-So indeed that is a correct way to write the model. We will now calculate the contribution off one observation to the deviance. Remember that the deviance is $-2Log(Likelihood)$, but we will ignore the 2 here.
-
+So indeed that is a correct way to write the model. Now we want to look at the deviance which is $-2log(Likelihood)=2\sum_{i} -log(P(Y_i=y_i|\boldsymbol{x_i}))$. We will ignore the 2 and just look at the contribution from one term of the sum.
 
 $$
 \begin{aligned}
--log(g(y_i\beta^T\boldsymbol{x_i}))&= &&\\
--log(\frac{1}{1+e^{-y_if(\boldsymbol{x_i})}})=log(1+e(-y_if(\boldsymbol{x_i})))&&\\
+-log(P(Y_i=y_i|\boldsymbol{x_i}))&=-log(g(y_i\beta^T\boldsymbol{x_i}))= &&\\
+-log(\frac{1}{1+e^{-y_if(\boldsymbol{x_i})}})&=log(1+exp(-y_if(\boldsymbol{x_i})))&&\\
 \end{aligned}
 $$
 We found the desired result.
