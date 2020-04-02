@@ -71,9 +71,7 @@ set.seed(1)
 train.ind = sample(1:nrow(College), 0.5 * nrow(College))
 college.train = College[train.ind, ]
 college.test = College[-train.ind, ]
-
-#the structure of the data 
-str(College)
+#str(College)
 ```
 
 Now we will apply forward selection, using $Outstate$ as a response. We have 18 variables including the response so we will obtain a model including up to 17 variables.
@@ -83,9 +81,9 @@ forward<-regsubsets(Outstate~.,college.train,nvmax=17,method="forward")
 sum<-summary(forward)
 ```
 
-In Figure \ref{fig:fig1} we can look at the RSS and the adjusted $R^2$ in order to pick the number of variables that gives the optimal result. Remember that if the difference is not very significant we would rather pick the simplest model. It seems like 5 variables would be good here.
+In the figure below we can look at the RSS and the adjusted $R^2$ in order to pick the number of variables that gives the optimal result. Remember that if the difference is not very significant we would rather pick the simplest model. It seems like 5 variables would be good here.
 
-```{r, echo=TRUE, eval=TRUE, fig1,fig.cap="Comparison of models with different number of variables. \\label{fig:fig1}"}
+```{r, echo=TRUE, eval=TRUE}
 par(mfrow=c(1,2))
 plot(sum$rss,xlab="Number of Variables",ylab="RSS",type="l")
 plot(sum$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
@@ -104,7 +102,7 @@ We will now find the reduced model as well as the MSE (mean squared error) on th
 ```{r, echo=TRUE, eval=TRUE}
 #fit the reduced model
 reduced.model<-lm(Outstate~Private+Room.Board+Grad.Rate+perc.alumni+Expend, data =college.train)
-summary(reduced.model)
+#summary(reduced.model)
 ```
 
 The reduced model is
@@ -118,6 +116,7 @@ $$ \begin{aligned}
 p<-predict(reduced.model,newdata=college.test)
 mse_fwd <- mean(((college.test$Outstate)-p)^2)
 ```
+
 The test MSE is
 $$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{f(x_i)})^2 =  `r mse_fwd`$$
 
@@ -181,7 +180,7 @@ $$
 \end{aligned}
 $$
 
-where the power basis functions are defined as below:
+where the power basis functions sre defined as
 $$
 b(X, q_j) = (x_i-q_j)_{+}^3
   \begin{cases}
@@ -189,7 +188,7 @@ b(X, q_j) = (x_i-q_j)_{+}^3
     0  & \quad \text{otherwise}
   \end{cases}
 $$
-This amounts to estimating $7$ regression coefficients $\beta_k$ for $k=0,..,7$ to the intercept and predictors.
+This amounts to estimate $7$ regression coefficients $\beta_k$ for $k=0,..,7$ for the intercept and predictors.
 
 ## c)
 
@@ -305,7 +304,7 @@ From the plot in d) (i) of the polynomial regression, it seems like all degrees 
 # Problem 3
 
 ## a)
-FALSE, FALSE, TRUE, FALSE
+FALSE, TRUE, TRUE, FALSE
 
 ## b)
 
@@ -330,12 +329,12 @@ The test MSE for the random forests is $MSE_{rf} = `r MSE_rf`$.
 
 ## c)
 
-We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, non-linear methods, polynomial regression and smoothing splines and at last the tree-based method random forrests of regression trees. For the polynomial regression we just show the polynomial degree with the minimal test MSE.
+We will now compare the test MSEs among the methods used on the data set $College$ so far. That is: the two linear model selection methods, forward selection and Lasso method, and at the tree-based method random forrests of regression trees.
 
 ```{r, echo=TRUE, eval=TRUE}
 
-MSE <- c(mse_fwd,mse_lasso,min(MSE_test_poly),MSE_spline_test,MSE_rf)
-Method <- c("Forward selection", "Lasso", "Polynomial regression", "Smoothing spline", 
+MSE <- c(mse_fwd,mse_lasso, MSE_rf)
+Method <- c("Forward selection", "Lasso", 
             "Random Forest")
 df <- data.frame(Method, MSE)
 kable(df)
@@ -357,27 +356,20 @@ d.test = d.diabetes$ctest
 ```
 
 ## a)
-In order to answer on the Mulitple choice we will have a look at the training data.
-
-```{r, echo=TRUE, eval=TRUE}
-library(GGally)
-library(gridExtra)
-
-max(d.train$npreg)#max nr of pregnancies
-head(d.train) #overview of data
-
-#plots
-ggpairs(d.train) + theme_minimal() #look at correlation between variables
-#plot2 <- ggplot(d.train, aes(x=npreg, y=diabetes))+geom_point()
-plot2 <- ggplot(d.train, aes(npreg)) + geom_histogram(binwidth = 2) + labs(title = "Histogram") + 
-    theme_minimal()
-plot3 <- ggplot(d.train,aes(x=glu,y=bmi,color=diabetes))+geom_point()
-grid.arrange(plot2, plot3, ncol=2, nrow = 1)
-
-```
-
 
 TRUE, TRUE, TRUE, TRUE
+
+The plots and functions used to answer the multiple choice questions is displayed as comments below.
+```{r, echo=TRUE, eval=TRUE}
+#library(GGally)
+#library(gridExtra)
+#max(d.train$npreg)#max nr of pregnancies
+#head(d.train) #overview of data
+#ggpairs(d.train) + theme_minimal() #look at correlation between variables
+#plot2 <- ggplot(d.train, aes(npreg)) + geom_histogram(binwidth = 2) + labs(title = "Histogram") + theme_minimal()
+#plot3 <- ggplot(d.train,aes(x=glu,y=bmi,color=diabetes))+geom_point()
+#grid.arrange(plot2, plot3, ncol=2, nrow = 1)
+```
 
 ## b)
 
@@ -460,14 +452,13 @@ table(Prediction = glm.pred, Truth = d.test$diabetes)
 ```
 
 The missclassification rate for logistic regression is 
+
 $$
 \frac{32+19}{136+45+32+19} = 0.2198 
 $$
 We notice that the missclassification rate for logistic regression is even lower than for the two SVMs. This indicates that logistic regression could be a even better choice in order to predict the prescense of diabetes based on our data. 
 
-Both logistic regression and support vector machines solve classification problems. In logistic regression all observations contribute to the decision boundary, while for SVMs, only the support vectors (the points closest to the decision boundary) contribute to the margin. A consequence of this is that LR is more sensitive to outliers than SVM. 
-
-For classes that are well separeted SVM tend to perform better than LR, while in more overlapping regimes we usually prefer LR. We also know that logistic regression produces probabilistic values, while SVM produces binary values. This can be an advantage if we want an estimation rather than just the resulting class for each observation.
+In logistic regression all observations contribute to the decision boundary, while for SVMs, only the support vectors (the points closest to the decision boundary) contribute to the margin. A consequence of this is that LR is more sensitive to outliers than SVM. For classes that are well separeted SVM tend to perform better than LR, while in more overlapping regimes we usually prefer LR. We also know that logistic regression produces probabilistic values, while SVM produces binary values. This can be an advantage if we want an estimation rather than just the resulting class for each observation.
 
 
 ## d)
