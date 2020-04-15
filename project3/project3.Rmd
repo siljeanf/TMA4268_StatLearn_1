@@ -1,0 +1,221 @@
+
+---
+subtitle: "TMA4268 Statistical Learning V2019"
+title: "Compulsory exercise 3"
+author: "Silje Anfindsen"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+ # html_document
+ pdf_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=68),tidy=TRUE)
+knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.white=TRUE,prompt=FALSE,
+                      cache=TRUE, size="scriptsize")
+```
+
+```{r rpackages,eval=TRUE,echo=FALSE}
+# install.packages("knitr") #probably already installed
+# install.packages("rmarkdown") #probably already installed
+# install.packages("ggplot2") #plotting with ggplot
+# install.packages("ggfortify")  
+# install.packages("MASS")  
+# install.packages("dplyr")  
+# install.packages("ISLR")
+# install.packages("boot")
+# install.packages("FactoMineR", dependencies = TRUE)
+# install.packages("factoextra")
+# install.packages("glmnet")
+# install.packages("tree")
+# install.packages("randomForest")
+# install.packages("gbm")
+# install.packages("keras")
+# install.packages("pls")
+# install.packages("gam")
+
+library(knitr)
+library(rmarkdown)
+library(ggplot2)
+```
+
+# Problem 1
+
+```{r college upload, eval=TRUE, echo=TRUE}
+library(ISLR)
+library(keras)
+set.seed(1)
+College$Private = as.numeric(College$Private)
+train.ind = sample(1:nrow(College), 0.5 * nrow(College))
+college.train = College[train.ind, ]
+college.test = College[-train.ind, ]
+str(College)
+```
+
+## a)
+Preprocessing the data by applying feature-wise normalization to the predictors.
+
+```{r preprocessing, eval=TRUE, echo=TRUE}
+#divide data into response and covariates
+#training data
+train_x <- college.train[,-9]
+train_y <- college.train[,9]
+
+#test data
+test_x <- college.test[,-9]
+test_y <- college.test[,9]
+
+#we use the mean and std of the training data for both test and train set
+mean <- apply(train_x , 2, mean)                                
+std <- apply(train_x, 2, sd)
+train_x <- scale(train_x, center = mean, scale = std)       
+test_x <- scale(test_x, center = mean, scale = std)
+```
+## b)
+
+The equation describing a network that predicts `Outstate`. The output layer has one node wich is numerical (the Out-of-state tuition), therefore we can choose betwenn ReLu and linear activation function for this layer, we choose the linear activation function.
+
+$$
+\hat{y_1}(x) = \beta_{01} + \sum_{m=1}^{64}\beta_{m1}\max(\gamma_{0m} + \sum_{l=1}^{64} \gamma_{lm}\max(\alpha_{0l}+\sum_{j=1}^{17}\alpha_{jl}x_j,0),0)
+$$
+*skal det være med bias term eller ikke for hvert lag?*
+
+## c)
+We will now train the network from b).
+```{r train network, eval=TRUE, echo=TRUE}
+set.seed(123)
+
+#define the model 
+model = keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = 'relu', input_shape = dim(train_x)[2]) %>% 
+  layer_dense(units = 64, activation = 'relu') %>% 
+  layer_dense(units = 1) 
+
+#compile
+model %>% compile(optimizer = "rmsprop", loss = "mse")
+
+#train
+history = model %>% fit(train_x, train_y, epochs = 300, batch_size = 8, 
+    validation_split = 0.2) #20% of the training set as validation set
+plot(history)+ggtitle("Training and Validation Error")
+
+#test MSE
+mse <- model %>% evaluate(test_x, test_y)
+```
+```{r compulsory 2, include=FALSE}
+#mse from compulsory 2
+fwrd <- 4112680
+lasso <-	3717020
+rf<-2607985
+```
+
+The test MSE for this network is `r mse`. From Compulsory 2, using the same dataset, the test MSE for
+forward selection is `r fwrd`, for Lasso,	`r lasso` and for random forest,	`r rf`.
+We observe that the network and Lasso has a very alike test MSE, while forward selection has the higest MSE. Random forests still has the lowest test MSE between the four methods.  
+ 
+ 
+## d)
+
+Let´s apply a regularization technique, dropout to see if it improves the network.
+```{r regulize network, eval=TRUE, echo=TRUE}
+set.seed(123)
+reg.model = keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = 'relu', input_shape = dim(train_x)[2]) %>% 
+   layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 64, activation = 'relu') %>% 
+  layer_dropout(rate = 0.3)
+  layer_dense(units = 1) 
+  
+#compile
+reg.model %>% compile(optimizer = "rmsprop", loss = "mse")
+
+#train
+reg.history = reg.model %>% fit(train_x, train_y, epochs = 300, batch_size = 8, 
+    validation_split = 0.2) #20% of the training set as validation set
+plot(reg.history)+ggtitle("Training and Validation Error")
+
+#test MSE
+reg.mse <- reg.model %>% evaluate(test_x, test_y)  
+
+```
+
+## e)
+
+
+# Problem 2
+
+## a) 
+## b) 
+
+
+
+## c)
+
+
+
+## d)
+
+
+# Problem 3
+
+## a)
+
+
+## b)
+
+
+## c)
+
+
+
+
+# Problem 4
+
+
+
+## a)
+
+
+
+## b)
+
+
+
+## c)
+
+
+## d)
+
+
+## e)
+
+
+# Problem 5
+
+
+## a)
+
+
+## b)
+
+
+  
+## c)
+  
+
+## d)
+
+
+## e)
+
+# f)
+
+# References
+
+James, G., D. Witten, T. Hastie, and R. Tibshirani. 2013. An Introduction to Statistical Learning with Applications in R. New York: Springer.
+
+
+
+
+
