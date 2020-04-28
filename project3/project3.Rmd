@@ -83,7 +83,6 @@ Below is the equation describing a network that predicts `Outstate` with $17$ pr
 $$
 \hat{y_1}(x) = \beta_{01} + \sum_{m=1}^{64}\beta_{m1}\max(\gamma_{0m} + \sum_{l=1}^{64} \gamma_{lm}\max(\alpha_{0l}+\sum_{j=1}^{17}\alpha_{jl}x_j,0),0)
 $$
-*skal det være med bias term eller ikke for hvert lag?*
 
 ## c) Implement network
 
@@ -124,7 +123,7 @@ lasso <-	3717020
 rf <- 2607985
 ```
 
-The test MSE for this network is **`r nn_mse`**. From Compulsory 2, using the same dataset, the test MSE for forward selection is **`r fwrd`** , for Lasso,	**`r lasso`** and **`r rf`** for random forest. We observe that the test MSE for the network model and Lasso method is very alike. Forward selection has the higest test MSE. Random forests still has the lowest test MSE between the four methods.
+The test MSE for this network is `r nn_mse`. From Compulsory 2, using the same dataset, the test MSE for forward selection is `r fwrd` , for Lasso, `r lasso` and `r rf` for random forest. We observe that the test MSE for the network model and Lasso method is very alike. Forward selection has the higest test MSE. Random forests still has the lowest test MSE between the four methods.
  
 ## d) Regularization
 We will now add dropout to each of the hidden layers. The dropout rate is $0.4$, indicating what fraction of features that are randomly being zeroed-out.
@@ -399,13 +398,13 @@ mod.pls <- plsr(log(totcst)~.,data=d.support.train, validation="CV", scale=TRUE)
 validationplot(mod.pls, val.type="MSEP")
 ```
 
-**(ii)** We can read from the plot and that the lowest cross-validation error occurs for models using **$M=4$** or more partial least squares directions. As we want a simple model we choose the lowest number giving a small enough error.
+**(ii)** We can read from the plot and that the lowest cross-validation error occurs for models using **$M=3$** or more partial least squares directions. As we want a simple model we choose the lowest number giving a small enough error.
 
 ```{r PLS mse ,echo=TRUE, eval=TRUE}
-pls.pred <- predict((mod.pls), x_test, ncomp=4)
+pls.pred <- predict((mod.pls), x_test, ncomp=3)
 MSE_pls <- mean((pls.pred-y_test)^2)
 ```
-**(iii)** The test MSE using $M=4$ PCs is **`r MSE_pls`**. Compared to the test MSE for ridge regression **`r MSE_ridge`**, PLS regression seems to be even better model choice for prediction as its test MSE is a bit lower.
+**(iii)** The test MSE using $M=3$ PCs is **`r MSE_pls`**. Compared to the test MSE for ridge regression **`r MSE_ridge`**, PLS regression seems to be even better model choice for prediction as its test MSE is a bit lower.
 
 ## e)
 Now, we will try to build models with even lower test MSE.
@@ -461,19 +460,19 @@ $$
 
 TRUE, TRUE, TRUE, FALSE
 
-## c) Covid-19 
+## c) Bootstrapping
 
-FALSE?, TRUE?, TRUE, FALSE
+FALSE, TRUE, TRUE, FALSE
 
 # Problem 5: Multiple Choice and single choice questions
 
 ## a) Regularization
 
-TRUE, TRUE, FALSE, FALSE?
+TRUE, TRUE, FALSE, TRUE
 
 ## b) PCR and PLS
 
-FALSE, TRUE, TRUE?, TRUE
+FALSE, TRUE, TRUE, TRUE
   
 ## c) Ridge regression
 
