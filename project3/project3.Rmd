@@ -1,6 +1,6 @@
 
 ---
-subtitle: "TMA4268 Statistical Learning V2019"
+subtitle: "TMA4268 Statistical Learning V2020"
 title: "Compulsory exercise 3"
 author: "Silje Anfindsen"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
@@ -11,6 +11,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(knitr)
+library(rmarkdown)
 opts_chunk$set(tidy.opts=list(width.cutoff=68),tidy=TRUE)
 knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.white=TRUE,prompt=FALSE,
                       cache=TRUE, size="scriptsize")
@@ -35,16 +36,20 @@ knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.wh
 # install.packages("pls")
 # install.packages("gam")
 
-library(knitr)
-library(rmarkdown)
-library(ggplot2)
-```
-
-# Problem 1
-
-```{r college upload, eval=TRUE, echo=TRUE}
 library(ISLR)
 library(keras)
+library(ggplot2)
+library("gridExtra")
+library(glmnet)
+library(pls)
+library(gam)
+library(randomForest)
+```
+
+# Problem 1: College tuition
+
+```{r load college, include=FALSE}
+?College
 set.seed(1)
 College$Private = as.numeric(College$Private)
 train.ind = sample(1:nrow(College), 0.5 * nrow(College))
@@ -53,163 +58,442 @@ college.test = College[-train.ind, ]
 str(College)
 ```
 
-## a)
-Preprocessing the data by applying feature-wise normalization to the predictors.
+## a) Preprocessing
+Start with applying feature-wise normalization to the predictors
 
 ```{r preprocessing, eval=TRUE, echo=TRUE}
 #divide data into response and covariates
-#training data
-train_x <- college.train[,-9]
-train_y <- college.train[,9]
-
-#test data
-test_x <- college.test[,-9]
+train_x <- college.train[,-9] #remove Outstate
+test_x <- college.test[,-9] 
+train_y <- college.train[,9] #only incl. Outstate 
 test_y <- college.test[,9]
 
-#we use the mean and std of the training data for both test and train set
+#find mean and std of the training data
 mean <- apply(train_x , 2, mean)                                
 std <- apply(train_x, 2, sd)
+
+#normalization of the covariates
 train_x <- scale(train_x, center = mean, scale = std)       
 test_x <- scale(test_x, center = mean, scale = std)
 ```
-## b)
 
-The equation describing a network that predicts `Outstate`. The output layer has one node wich is numerical (the Out-of-state tuition), therefore we can choose betwenn ReLu and linear activation function for this layer, we choose the linear activation function.
+## b) Network equation
+Below is the equation describing a network that predicts `Outstate` with $17$ predictors (nodes) in the input layer, and $2$ hidden layers using `ReLu` activation function. The output layer has $1$ node wich is continous numerical (response), implying a regression problem in statistics. We therefore choose the `linear` activation function for this layer.
 
 $$
 \hat{y_1}(x) = \beta_{01} + \sum_{m=1}^{64}\beta_{m1}\max(\gamma_{0m} + \sum_{l=1}^{64} \gamma_{lm}\max(\alpha_{0l}+\sum_{j=1}^{17}\alpha_{jl}x_j,0),0)
 $$
 *skal det være med bias term eller ikke for hvert lag?*
 
-## c)
-We will now train the network from b).
-```{r train network, eval=TRUE, echo=TRUE}
+## c) Implement network
+
+**(i)** First, train the network from above using $20\%$ of the training data as validation set.
+```{r train network, eval=TRUE, echo=TRUE, cache=TRUE}
 set.seed(123)
 
 #define the model 
 model = keras_model_sequential() %>% 
   layer_dense(units = 64, activation = 'relu', input_shape = dim(train_x)[2]) %>% 
   layer_dense(units = 64, activation = 'relu') %>% 
-  layer_dense(units = 1) 
+  layer_dense(units = 1 , activation = 'linear') 
 
 #compile
-model %>% compile(optimizer = "rmsprop", loss = "mse")
+model %>% compile(optimizer = "rmsprop", loss = "mse", metrics = "mean_squared_error")
 
 #train
 history = model %>% fit(train_x, train_y, epochs = 300, batch_size = 8, 
     validation_split = 0.2) #20% of the training set as validation set
-plot(history)+ggtitle("Training and Validation Error")
-
-#test MSE
-mse <- model %>% evaluate(test_x, test_y)
 ```
+
+**(ii)** I have used `mse` as the loss function and metric and `RMSprop` as optimizer in the training phase. The plot below shows the training and validation error as a function of epochs.
+```{r plot network, eval=TRUE, echo=TRUE, fig.width=6, fig.height=4}
+plot(history, metrics = "mean_squared_error", smooth = FALSE) + 
+  ggtitle("Training and Validation Error")
+```
+
+**(iii)**  
+```{r mse network, eval=TRUE, echo=TRUE}
+error<-  model %>% evaluate(test_x, test_y)
+nn_mse<- error$mean_squared_error
+```
+
 ```{r compulsory 2, include=FALSE}
 #mse from compulsory 2
 fwrd <- 4112680
 lasso <-	3717020
-rf<-2607985
+rf <- 2607985
 ```
 
-The test MSE for this network is `r mse`. From Compulsory 2, using the same dataset, the test MSE for
-forward selection is `r fwrd`, for Lasso,	`r lasso` and for random forest,	`r rf`.
-We observe that the network and Lasso has a very alike test MSE, while forward selection has the higest MSE. Random forests still has the lowest test MSE between the four methods.  
+The test MSE for this network is **`r nn_mse`**. From Compulsory 2, using the same dataset, the test MSE for forward selection is **`r fwrd`** , for Lasso,	**`r lasso`** and **`r rf`** for random forest. We observe that the test MSE for the network model and Lasso method is very alike. Forward selection has the higest test MSE. Random forests still has the lowest test MSE between the four methods.
  
- 
-## d)
+## d) Regularization
+We will now add dropout to each of the hidden layers. The dropout rate is $0.4$, indicating what fraction of features that are randomly being zeroed-out.
 
-Let´s apply a regularization technique, dropout to see if it improves the network.
-```{r regulize network, eval=TRUE, echo=TRUE}
+```{r regulize network, eval=TRUE, echo=TRUE, cache=TRUE, fig.width=6, fig.height=4}
 set.seed(123)
-reg.model = keras_model_sequential() %>% 
-  layer_dense(units = 64, activation = 'relu', input_shape = dim(train_x)[2]) %>% 
-   layer_dropout(rate = 0.4) %>% 
-  layer_dense(units = 64, activation = 'relu') %>% 
-  layer_dropout(rate = 0.3)
-  layer_dense(units = 1) 
+
+#define model, with dropout on each hidden layer
+reg_model <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = 'relu', input_shape = dim(train_x)[2]) %>%
+              layer_dropout(0.4) %>%
+  layer_dense(units = 64, activation = 'relu') %>%
+              layer_dropout(0.4) %>%
+  layer_dense(units = 1, activation = 'linear')
   
 #compile
-reg.model %>% compile(optimizer = "rmsprop", loss = "mse")
+reg_model %>% compile(optimizer = "rmsprop", loss = "mse", metrics = "mean_squared_error")
 
 #train
-reg.history = reg.model %>% fit(train_x, train_y, epochs = 300, batch_size = 8, 
-    validation_split = 0.2) #20% of the training set as validation set
-plot(reg.history)+ggtitle("Training and Validation Error")
+reg_history = reg_model %>% fit(train_x, train_y, epochs = 300, batch_size = 8, 
+    validation_split = 0.2)
 
-#test MSE
-reg.mse <- reg.model %>% evaluate(test_x, test_y)  
+#plot
+plot(reg_history, metrics = "mean_squared_error", smooth = FALSE)+
+  ggtitle("Training and validation error with dropout") 
+
+#test mse
+reg_error <-  reg_model %>% evaluate(test_x, test_y)
+reg_mse <- reg_error$mean_squared_error
+```
+
+It is hard to notice any improvements by looking at the two plots with and without regularization. The training and validaiton loss seem to overlap, and the loss decreases rapidly during the first 30 epochs. Thereafter it decreases slowly. We observe that $40\%$ of the features are zeroed out from the dropout. The test MSE for the regularized model is **`r reg_mse`**. Recall, for the non-regularized model the MSE is **`r nn_mse`**. This indicates that the regularized model performs a bit better than the non-regularized model, but compared to random forests from compulsory 2 the improvement is not impressing.
+
+
+# Problem 2: Covid-19 infection
+
+```{r load corona, eval=TRUE, echo=FALSE}
+id <- "1CA1RPRYqU9oTIaHfSroitnWrI6WpUeBw" # google file ID
+d.corona <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", id),header=T)
+```
+
+## a) Inspecting the data
+
+**Table 1: The number of deceased for each `country`.**
+
+```{r table1, eval=TRUE, echo=FALSE}
+t1 <- table(d.corona$country, d.corona$deceased)
+colnames(t1) <- c("Died","Survived")
+t1
+```
+
+**Table 2: The number of deceased for each `sex`.**
+
+```{r table2, eval=TRUE, echo=FALSE}
+t2<- table(d.corona$sex, d.corona$deceased)
+colnames(t2) <- c("Died","Survived")
+t2
+```
+
+**Table 3: The number of deceased, separate for each `sex`, per `country`.**
+
+```{r table3, eval=TRUE, echo=FALSE}
+t3_fr <- table ( d.corona[1:114,]$sex, d.corona[1:114,]$deceased )
+names(dimnames(t3_fr)) <- list("", "France")
+colnames(t3_fr) <- c("Died","Survived")
+t3_fr
+
+t3_ind <- table( d.corona[114:(114+69),]$sex, d.corona[114:(114+69),]$deceased )
+names(dimnames(t3_ind)) <- list("", "Indonesia")
+colnames(t3_ind) <- c("Died","Survived")
+t3_ind
+
+t3_ja <- table( d.corona[(114+69):(114+69+294),]$sex, d.corona[(114+69):(114+69+294),]$deceased )
+names(dimnames(t3_ja)) <- list("", "Japan")
+colnames(t3_ja) <- c("Died","Survived")
+t3_ja
+
+t3_ko <- table(d.corona[(114+69+294):(114+69+294+1451),]$sex, d.corona[(114+69+294):(114+69+294+1451),]$deceased)
+names(dimnames(t3_ko)) <- list("", "Korea")
+colnames(t3_ko) <- c("Died","Survived")
+t3_ko
+```
+
+## b) Multiple choice
+FALSE, FALSE, TRUE, FALSE
+
+```{r multiple choice 2b, include=FALSE}
+#model: logistic regression
+model= glm(deceased ~ ., data = d.corona, family = "binomial")
+
+#(ii) never remove a category from a categorical variable
+summary(model)
+
+#(i) test significance of categorical variable
+model1 <- glm(deceased ~ sex+age, data=d.corona, family="binomial")
+anova(model1,model, test = "Chisq") #result: country is significant
+
+#(iii) increasing the covariate by ten units, the odds ratio to die:
+odds.ratio.agex10 <- exp(coef(model)[3]*10)#1.97
+odds.ratio.agex10
+
+#(iv) prob to die for males vs. females 
+odds.ratio.sex <- exp(coef(model)[2])
+#will not be the same for the probability ratio
 
 ```
 
+## c) Plot
+The plot displays the probabilities to die of coronavirus given that the patient is deceased, as a function of `age`, coloured by `country` and linetype by `sex`. 
+
+```{r plot corona,  eval=TRUE, echo=TRUE, fig.width=6, fig.height=4}
+#make list of age, country and sex
+a <- seq(20,100,1)
+s = unique(d.corona$sex)
+c = unique(d.corona$country)
+
+#generate gridded data and predict
+newdata = expand.grid(age=a,country=c, sex=s)
+p <- predict(model, newdata, type="response")
+
+#plot
+ggplot(d.corona, aes(x = age, y = deceased)) + 
+  geom_line(data = newdata, aes(x=age, y=p, col=country, linetype=sex)) + 
+  labs(title="Probability of dying of corona when deceased", 
+       y="P ( die | deceased )", x="Age")
+```
+
+## d) Questions
+**(i)** It seems to be a trend that males have higher probability of dying of corona compared to women from the plot in c). To verify this assumption we make a model with `sex` as the only covariate and look at the coefficient estimate. Here we observe that its sign is positive, meaning males are more likely to die of corona virus than females.
+
+```{r question corona (i),eval=TRUE, echo=TRUE}
+mod1 <- glm(deceased ~ sex, data = d.corona, family = "binomial")
+summary(mod1)$coefficients[2,]
+```
+
+**(ii)** In order to check if age is a greater risk factor for males than for females, we need to fit a model to see if the interaction between ``age`` and ``sex:male`` is significant. Here, we notice that the estimate for the interaction is small and negative which indicates that age actually is a greater risk factor for females than for males In addition, we also notice that the p-value is greater than the usual significance level indicating that the interaction is not significant.
+
+```{r question (ii),  eval=TRUE, echo=TRUE}
+mod2 <- glm(deceased ~ sex*age, data=d.corona, family = "binomial")
+summary(mod2)$coefficients[4,]
+```
+
+**(iii)** In order to check if age is a greater risk factor for the French populaiton compared to the Korean, we do the same procedure as in (ii). We fit a model with an interaction term between ``country`` and ``age``. Let´s take a look at the coefficient estimate for ``age:countryKorea`` which gives the difference with respect to the reference category, France. It´s negative which means that age is a greater risk factor for the French population compared to the Korean. Again, the p-value is greater than the usual significance level which indicates that the interaction is not significant.
+
+```{r question corona (iii),  eval=TRUE, echo=TRUE}
+mod3 <- glm(deceased ~ age*country, data=d.corona, family = "binomial")
+summary(mod3)$coefficients[8,]
+```
+
+## e) Interpret the model
+When reporting the tables in a) one easily notice the inequality between the total number of observations per country. For example, there are about ten times more observations from Korea, and two times more from Japan compared to from France. Usually, more data implies a more accurate model. It is also important to research how the data was collected. For example, if the observations are collected from a certain group and not a random part of the population, the data and the following results will have less scientifical value. So, even though the French population seem to have a higher risk of dying from Covid-19, it does not necessarily represent the reality. 
+
+## f) Multiple choice 
+TRUE, TRUE, FALSE, TRUE 
+
+```{r corona mc 2, include=FALSE}
+#misclassification rate for LDA
+sum <- 1926+31+39+14
+rate <- (31+39)/sum
+rate
+
+#misclassification rate for logistic model
+glm.probs <- predict(model, data= d.corona, type="response")
+glm.pred = rep("0",length(d.corona$deceased)) 
+glm.pred[glm.probs>0.5]="1"
+table(Prediction = glm.pred, Truth = d.corona$deceased)
+
+sum <- 1964 +44 +1 +1
+rate1 <- (44+1)/sum
+rate1
+```
+
+# Problem 3: Hospital costs
+```{r load hospital costs,include=FALSE}
+id <- "1heRtzi8vBoBGMaM2-ivBQI5Ki3HgJTmO"  # google file ID
+d.support <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", 
+    id), header = T)
+# We only look at complete cases
+d.support <- d.support[complete.cases(d.support), ]
+d.support <- d.support[d.support$totcst > 0, ]
+head(d.support)
+```
+
+## a) Histograms
+Below is a visualization of the distributions of all the continous and integer variables.
+
+```{r histogram hospital, echo=FALSE, eval=TRUE}
+g1 <- ggplot( data=d.support, aes(totcst) ) + geom_histogram()
+g2 <- ggplot( data=d.support, aes(age) ) + geom_histogram()
+g3 <- ggplot( data=d.support, aes(edu) ) + geom_histogram()
+g4 <- ggplot( data=d.support, aes(meanbp) ) + geom_histogram()
+g5 <- ggplot( data=d.support, aes(hrt) ) + geom_histogram()
+g6 <- ggplot( data=d.support, aes(resp) ) + geom_histogram()
+g7 <- ggplot( data=d.support, aes(temp) ) + geom_histogram()
+g8 <- ggplot( data=d.support, aes(pafi) ) + geom_histogram()
+g9 <- ggplot( data=d.support, aes(num.co) ) + geom_histogram()
+g10 <- ggplot( data=d.support, aes(scoma) ) + geom_histogram()
+
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,g10,ncol=4,nrow = 3)
+```
+
+We notice that the distribution of the response `totcst` is right-skewed, so we try the transformation $\log$(`totcst`) and notice that the distribution now looks normal.
+
+```{r transformation, echo=FALSE, eval=TRUE, fig.width=3, fig.height=2}
+ggplot( data=d.support, aes(log(totcst))) + geom_histogram()
+```
+
+## b) Multiple linear regression model
+Now fit is a multiple linear regression model with the transformed hospital costs $\log$(`totcst`) as response and the following covariates: `age`,`temp`,`edu`,`resp`,`num.co` and `dzgroup`.
+```{r lin.reg hospital, echo=TRUE, eval=TRUE}
+mod <- lm(log(totcst) ~ age+temp+edu+resp+num.co+dzgroup, data=d.support)
+```
+
+**(i)** In order to find how the response is affected when the patient’s age increase by $10$ years we look at the coefficient estimate for `age` and multiply it with $10$ ($1$ year = $1$ unit). The estimate which representes the difference in the predicted response for one unit change in the covariate is transformed back (since we have transformed $y$). 
+```{r age increase, echo=TRUE, eval=TRUE}
+age10 <- 10^(coef(mod)[2]*10)
+```
+The total costs is expected to increase with a factor of **`r age10`** as the patient’s age increases by $10$ years.
+
+**(ii)** We will now check if the model assumptions for a linear regression model are fulfilled.\newline
+```{r residual analysis, echo=FALSE, eval=TRUE}
+par(mfrow=c(1,2))
+plot(mod, which=c(2,1))
+```
+
+**Turkey-Anscombe diagram** *(Residual vs. Fitted)*: there are two clear outliers out of the $4960$ observations. The linearity seems to hold since the mean of the residuals (red line) lays exactly on the null-line (dashed line). The spread of the residuals seems to be constant along the line, which indicate homoscedasticity of residuals.\newline
+**QQ-diagram**: the points lay on a straight line and therefore strengthen the assumption about normallity.
+
+**(iii)** We will now do a hypothesis test between the original model and a new model including the interaction between `age` and `dzgroup` (disease group).
+```{r age and dzgroup, echo=FALSE, eval=TRUE}
+full.mod <- lm(log(totcst)~.+age*dzgroup, data=d.support)
+anova(mod, full.mod )
+```
+The p-value of the test is **$2.2 \times 10^{-16}$**, which is smaller than the usual significane level. It therefore suggests that the null hypothesis is false *(H0: interaction-term is zero)*. So the effect of age depend on the disease group.
+
+## c)
+Now, use ridge regression to build a more robust model.
+First seperate $80\%$ of the data into a training set, and the remaining $20\%$ into a test set.
+
+```{r train/test hospital,echo=TRUE, eval=TRUE}
+set.seed(12345)
+train.ind = sample(1:nrow(d.support), 0.8 * nrow(d.support))
+d.support.train = d.support[train.ind, ] #80% data
+d.support.test = d.support[-train.ind, ] #20% data
+
+#Make a x matrix and y vector for both the training and testing set
+x_train<-model.matrix(log(totcst)~.,d.support.train)[,-1]
+y_train<-log(d.support.train$totcst)
+x_test<-model.matrix(log(totcst)~.,d.support.test)[,-1]
+y_test<-log(d.support.test$totcst)
+```
+
+Then, for the training set, run cross validation and find the largest value of $\lambda$ such that the error is within 1 std. error of the $\lambda$ corresponding to the lowest MSE.
+```{r ridge model, echo=TRUE, eval=TRUE}
+set.seed(555)
+cv.ridge = cv.glmnet(x_train,y_train,alpha=0) #CV on train set
+best.lambda = cv.ridge$lambda.1se
+```
+
+Now use $\lambda =$ `r best.lambda` to calculate the test MSE of the ridge regression.
+```{r ridge mse, echo=TRUE, eval=TRUE}
+ridge.pred <- predict(cv.ridge, s=best.lambda, newx=x_test)
+MSE_ridge <- mean((ridge.pred-y_test)^2)
+```
+The test MSE for ridge regression is **`r MSE_ridge`**.
+
+## d) 
+**(i)** Now, run a partial least squares (PLS) regression.
+```{r PLS ,echo=TRUE, eval=TRUE}
+set.seed(122)
+mod.pls <- plsr(log(totcst)~.,data=d.support.train, validation="CV", scale=TRUE)
+validationplot(mod.pls, val.type="MSEP")
+```
+
+**(ii)** We can read from the plot and that the lowest cross-validation error occurs for models using **$M=4$** or more partial least squares directions. As we want a simple model we choose the lowest number giving a small enough error.
+
+```{r PLS mse ,echo=TRUE, eval=TRUE}
+pls.pred <- predict((mod.pls), x_test, ncomp=4)
+MSE_pls <- mean((pls.pred-y_test)^2)
+```
+**(iii)** The test MSE using $M=4$ PCs is **`r MSE_pls`**. Compared to the test MSE for ridge regression **`r MSE_ridge`**, PLS regression seems to be even better model choice for prediction as its test MSE is a bit lower.
+
 ## e)
+Now, we will try to build models with even lower test MSE.
+
+**(i)** First, try a non-linear transformation of the covariates combined to a GAM. The optimal model is investigated by trying out different combinations of which variables to included in the model and whether to these are linear, smoothing splines or polynomials of different degrees.
+```{r GAM ,echo=TRUE, eval=TRUE}
+gam.mod <- gam(log(totcst) ~ s(age,5)+s(temp,6)+s(resp,5)+poly(edu,4)+ s(num.co,5)+dzgroup+poly(meanbp,3)+race+income, data=d.support.train)
+gam.pred <- predict(gam.mod, newdata=d.support.test)
+MSE_gam <- mean((gam.pred-y_test)^2)
+```
+The test MSE for the generalizes additive model is **`r MSE_gam`**.
+
+**(ii)** For the second tree-based model I will try to fit a random forest method. This method which uses bootstrapping to build several trees is known for being quite accurate and flexible injecting more randomness in order to avoid strong predictors dominating the decision trees. 
+For the tuning parameter (nr. of tree in each split) we choose $p/3 = 12/3=4$ variables.
+
+```{r tree ,echo=TRUE, eval=TRUE, cache=TRUE}
+set.seed(2)
+rf.tree <- randomForest(log(totcst) ~ .,data=d.support.train, mtry=4, importance=TRUE)
+rf.pred <- predict(rf.tree, newdata=d.support.test)
+MSE_rf <- mean((rf.pred-y_test)^2)
+```
+The test MSE for random forest regression tree is **`r MSE_rf`**. Both random forest and GAM give a smaller test MSE compared to the regularized and dimension reduction methods used in c) and d). Random forests is clearly the best methods out of these four.
 
 
-# Problem 2
+# Problem 4: Mixed Questions
 
-## a) 
-## b) 
+## a) Cubic regression spline model
 
+**Basis functions:**
+There are $k=5$ basis functions for the given cubic regression spline model. We have two knots $q_1,q_2$ respectivelly at $x=1$ and $x=2$.
 
+$$
+\begin{aligned}
+&b_1(x_i) = x_i && b_4(x_i, q_j) = (x_i-q_j)_{+}^3 \\
+&b_2(x_i) = x_i^2 && b_5(x_i, q_j) = (x_i-q_j)_{+}^3 \\
+&b_3(x_i)= x_i^3 \\
+\end{aligned}
+$$
+**Design matrix:**
+The design matrix will have dimensions $n \times (k+1) = n \times 6$, where $n$ is the number of observations. 
 
-## c)
+$$
+X = \begin{pmatrix}
+  1 & b_1(x_1) & b_2(x_1) & b_3(x_1) & b_4(x_1,q_1) & b_5(x_1,q_2) & \\
+  1 & b_1(x_2) & b_2(x_2) & b_3(x_2) & b_4(x_2,q_1) & b_5(x_2,q_2) & \\
+  1 & b_1(x_3) & b_2(x_3) & b_3(x_3) & b_4(x_3,q_1) & b_5(x_3,q_2) & \\
+  \vdots  & \vdots  & \vdots & \vdots & \vdots & \vdots \\
+  1 & b_1(x_n) & b_2(x_n) & b_3(x_m) & b_4(x_n,q_1) & b_5(x_n,q_2) & \\
+\end{pmatrix}
+$$
 
+## b) Inference vs. prediction
 
+TRUE, TRUE, TRUE, FALSE
 
-## d)
+## c) Covid-19 
 
+FALSE?, TRUE?, TRUE, FALSE
 
-# Problem 3
+# Problem 5: Multiple Choice and single choice questions
 
-## a)
+## a) Regularization
 
+TRUE, TRUE, FALSE, FALSE?
 
-## b)
+## b) PCR and PLS
 
-
-## c)
-
-
-
-
-# Problem 4
-
-
-
-## a)
-
-
-
-## b)
-
-
-
-## c)
-
-
-## d)
-
-
-## e)
-
-
-# Problem 5
-
-
-## a)
-
-
-## b)
-
-
+FALSE, TRUE, TRUE?, TRUE
   
-## c)
-  
+## c) Ridge regression
 
-## d)
+(iv)
 
+## d) Curse of dimensionality
 
-## e)
+(ii)
 
-# f)
+## e) KNN 
+
+(i)
+
+# f) Clinical study
+
+TRUE, TRUE, FALSE, TRUE
+
+# g) Athletes’ performance 
+
+TRUE, FALSE, TRUE, TRUE
 
 # References
 

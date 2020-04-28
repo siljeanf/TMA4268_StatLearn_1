@@ -1,0 +1,13 @@
+base
+knitr
+rmarkdown
+ISLR
+keras
+ggplot2
+gridExtra
+Matrix
+glmnet
+pls
+foreach
+gam
+randomForest

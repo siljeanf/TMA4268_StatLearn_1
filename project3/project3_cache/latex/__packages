@@ -4,3 +4,12 @@ rmarkdown
 ISLR
 keras
 ggplot2
+MASS
+gridExtra
+Matrix
+glmnet
+pls
+foreach
+gam
+gbm
+randomForest
