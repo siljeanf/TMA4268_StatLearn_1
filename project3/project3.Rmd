@@ -339,7 +339,7 @@ mod <- lm(log(totcst) ~ age+temp+edu+resp+num.co+dzgroup, data=d.support)
 
 **(i)** In order to find how the response is affected when the patient’s age increase by $10$ years we look at the coefficient estimate for `age` and multiply it with $10$ ($1$ year = $1$ unit). The estimate which representes the difference in the predicted response for one unit change in the covariate is transformed back (since we have transformed $y$). 
 ```{r age increase, echo=TRUE, eval=TRUE}
-age10 <- 10^(coef(mod)[2]*10)
+age10 <- exp(coef(mod)[2]*10)
 ```
 The total costs is expected to increase with a factor of **`r age10`** as the patient’s age increases by $10$ years.
 
@@ -352,12 +352,16 @@ plot(mod, which=c(2,1))
 **Turkey-Anscombe diagram** *(Residual vs. Fitted)*: there are two clear outliers out of the $4960$ observations. The linearity seems to hold since the mean of the residuals (red line) lays exactly on the null-line (dashed line). The spread of the residuals seems to be constant along the line, which indicate homoscedasticity of residuals.\newline
 **QQ-diagram**: the points lay on a straight line and therefore strengthen the assumption about normallity.
 
-**(iii)** We will now do a hypothesis test between the original model and a new model including the interaction between `age` and `dzgroup` (disease group).
-```{r age and dzgroup, echo=FALSE, eval=TRUE}
-full.mod <- lm(log(totcst)~.+age*dzgroup, data=d.support)
-anova(mod, full.mod )
+**(iii)** We will now do a hypothesis test between the original model and a new model including the interaction between `age` and `dzgroup` (disease group). 
+Where, \newline
+*H0 : $\beta_{age:dzgroup}= 0$ vs. H1: $\beta_{age:dzgroup} \neq 0$*
+```{r age and dzgroup, echo=TRUE, eval=TRUE}
+full.mod <- lm(log(totcst)~temp+edu+resp+num.co+age*dzgroup, data=d.support)
+a <- anova(full.mod, mod)
+pvalue <- a$"Pr(>F)"[2]
+a
 ```
-The p-value of the test is **$2.2 \times 10^{-16}$**, which is smaller than the usual significane level. It therefore suggests that the null hypothesis is false *(H0: interaction-term is zero)*. So the effect of age depend on the disease group.
+The p-value of the test is `r pvalue`, which is smaller than the usual significane level. It therefore suggests that the null hypothesis is false, and the effect of age therefore depend on the disease group.
 
 ## c)
 Now, use ridge regression to build a more robust model.
